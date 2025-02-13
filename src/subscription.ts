@@ -3,6 +3,7 @@ import {
   isCommit,
 } from './lexicon/types/com/atproto/sync/subscribeRepos'
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
+import fs from 'fs'
 
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
   async handleEvent(evt: RepoEvent) {
@@ -17,16 +18,23 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     //   console.log(post.record.text)
     // }
 
+    // Save ops.posts as a JSON file
+    fs.appendFileSync('test.json', JSON.stringify(ops, null, 2), 'utf-8')
+
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .map((create) => {
-        // map alf-related posts to a db row
         return {
           uri: create.uri,
           cid: create.cid,
           indexedAt: new Date().toISOString(),
+          createdAt: create.record.createdAt,
+          author: create.author,
+          text: create.record.text,
+          rootUri: create.record.reply?.root?.uri || "",
+          rootCid: create.record.reply?.root?.cid || "",
         }
-      })
+      })    
 
     if (postsToDelete.length > 0) {
       await this.db

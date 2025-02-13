@@ -132,3 +132,7 @@ dist
 # intellij
 .idea/
 *.iml
+
+# JBG added
+db.sqlite
+src/lab.R
