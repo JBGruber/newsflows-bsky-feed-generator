@@ -21,6 +21,15 @@ migrations['001'] = {
       .addColumn('rootUri', 'varchar', (col) => col.notNull())
       .addColumn('rootCid', 'varchar', (col) => col.notNull())
       .execute()
+     await db.schema
+      .createTable('engagement')
+      .addColumn('uri', 'varchar', (col) => col.primaryKey())
+      .addColumn('cid', 'varchar', (col) => col.notNull())
+      .addColumn('type', 'integer', (col) => col.notNull())
+      .addColumn('indexedAt', 'varchar', (col) => col.notNull())
+      .addColumn('createdAt', 'varchar', (col) => col.notNull())
+      .addColumn('author', 'varchar', (col) => col.notNull())
+      .execute()
     await db.schema
       .createTable('sub_state')
       .addColumn('service', 'varchar', (col) => col.primaryKey())

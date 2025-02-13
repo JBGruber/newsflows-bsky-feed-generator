@@ -1,5 +1,6 @@
 export type DatabaseSchema = {
   post: Post
+  engagement: Engagement
   sub_state: SubState
 }
 
@@ -12,6 +13,15 @@ export type Post = {
   text: string
   rootUri: string
   rootCid: string
+}
+
+export type Engagement = {
+  uri: string
+  cid: string
+  type: number
+  indexedAt: string
+  createdAt: string
+  author: string
 }
 
 export type SubState = {
