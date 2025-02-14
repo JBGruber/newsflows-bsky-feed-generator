@@ -135,4 +135,4 @@ dist
 
 # JBG added
 db.sqlite
-src/lab.R
+lab.R
