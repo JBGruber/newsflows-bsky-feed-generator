@@ -37,10 +37,6 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
       })    
 
     // likes + reposts = engagement
-    const typeMapping: Record<string, number> = {
-      "app.bsky.feed.repost": 1,
-      "app.bsky.feed.like": 2
-    }
     const engagementsToDelete = ops.reposts.deletes.map((del) => del.uri).concat(
         ops.likes.deletes.map((del) => del.uri)
       )
@@ -49,7 +45,7 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
         return {
           uri: create.uri,
           cid: create.cid,
-          type: typeMapping[create.record.$type as string] ?? 0,
+          type: 1,
           indexedAt: new Date().toISOString(),
           createdAt: create.record.createdAt,
           author: create.author,
@@ -60,7 +56,7 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
             return {
               uri: create.uri,
               cid: create.cid,
-              type: typeMapping[create.record.$type as string] ?? 0,
+              type: 2,
               indexedAt: new Date().toISOString(),
               createdAt: create.record.createdAt,
               author: create.author,
