@@ -21,7 +21,7 @@ migrations['001'] = {
       .addColumn('rootUri', 'varchar', (col) => col.notNull())
       .addColumn('rootCid', 'varchar', (col) => col.notNull())
       .execute()
-     await db.schema
+    await db.schema
       .createTable('engagement')
       .addColumn('uri', 'varchar', (col) => col.primaryKey())
       .addColumn('cid', 'varchar', (col) => col.notNull())
@@ -29,6 +29,12 @@ migrations['001'] = {
       .addColumn('indexedAt', 'varchar', (col) => col.notNull())
       .addColumn('createdAt', 'varchar', (col) => col.notNull())
       .addColumn('author', 'varchar', (col) => col.notNull())
+      .execute()
+    await db.schema
+      .createTable('follows')
+      .addColumn('subject', 'varchar', (col) => col.notNull())
+      .addColumn('follows', 'varchar', (col) => col.notNull())
+      .addPrimaryKeyConstraint('follows_pk', ['subject', 'follows']) // Composite primary key
       .execute()
     await db.schema
       .createTable('sub_state')
