@@ -2,22 +2,18 @@ import { QueryParams } from '../lexicon/types/app/bsky/feed/getFeedSkeleton'
 import { AppContext } from '../config'
 import { getFollows } from './queries'
 import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'  // Import the correct type
-import fs from 'fs'
 
 // max 15 chars
 export const shortname = 'newsflow-nl-1'
 
-export const handler = async (ctx: AppContext, params: QueryParams) => {
+export const handler = async (ctx: AppContext, params: QueryParams, requesterDid: string) => {
   console.log("Feed", shortname, "requested:", new Date().toISOString())
   const publisherDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   const limit = Math.floor(params.limit / 2); // 50% from each source
 
-  // TODO: get real requesterDid
-  const requesterDid = 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   // const follows = await getFollows(requesterDid, ctx.db)
   // TODO: trigger API call to update follows periodically, not just here
-  const follows = getFollows(requesterDid, ctx.db)
-  // fs.appendFileSync('ctx.json', JSON.stringify(ctx.cfg, null, 2), 'utf-8')
+  const requesterFollows = await getFollows(requesterDid, ctx.db)
 
   // Fetch posts from our News account
   let publisherPostsQuery = ctx.db
@@ -32,17 +28,23 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
     const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
     publisherPostsQuery = publisherPostsQuery.where('post.indexedAt', '<', timeStr);
   }
-  
+
   const publisherPosts = await publisherPostsQuery.execute();
 
-  console.log("Follows of", requesterDid, "are:", follows)
+  // console.log("Follows of", requesterDid, "are:", requesterFollows)
   // Fetch posts by follows
+
   let otherPostsQuery = ctx.db
     .selectFrom('post')
-    .selectAll()
-    .where('author', '!=', publisherDid) // Exclude posts from the publisher
-    // TODO: find out how make sure await does not lead to internal server error
-    // .where('author', '=', await follows)
+    .selectAll();
+
+  // if no follows are found, feed contains random posts
+  if (requesterFollows.length > 0) {
+    console.log(requesterFollows.length, "follows")
+    otherPostsQuery = otherPostsQuery
+      .where((eb) => eb('author', 'in', requesterFollows));
+  }
+  otherPostsQuery = otherPostsQuery
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
     .limit(limit);
@@ -51,7 +53,7 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
     const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
     otherPostsQuery = otherPostsQuery.where('post.indexedAt', '<', timeStr);
   }
-  
+
   const otherPosts = await otherPostsQuery.execute();
 
   // Merge both post lists in an alternating pattern
@@ -67,7 +69,7 @@ export const handler = async (ctx: AppContext, params: QueryParams) => {
   }
 
   let cursor: string | undefined;
-  const lastPost = [...publisherPosts, ...otherPosts].sort((a, b) => 
+  const lastPost = [...publisherPosts, ...otherPosts].sort((a, b) =>
     new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
   ).at(-1);
 
