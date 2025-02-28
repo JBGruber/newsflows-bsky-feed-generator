@@ -5,6 +5,7 @@ import { DidResolver, MemoryCache } from '@atproto/identity'
 import { createServer } from './lexicon'
 import feedGeneration from './methods/feed-generation'
 import describeGenerator from './methods/describe-generator'
+import registerSubscribeEndpoint from './methods/subscribe' // Add this import
 import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
@@ -57,6 +58,9 @@ export class FeedGenerator {
     describeGenerator(server, ctx)
     app.use(server.xrpc.router)
     app.use(wellKnown(ctx))
+    
+    // Add the new subscribe endpoint
+    registerSubscribeEndpoint(server, ctx)
 
     return new FeedGenerator(app, db, firehose, cfg)
   }

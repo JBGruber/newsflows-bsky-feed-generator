@@ -3,6 +3,7 @@ export type DatabaseSchema = {
   engagement: Engagement
   follows: Follows
   sub_state: SubState
+  subscriber: Subscriber
 }
 
 export type Post = {
@@ -36,4 +37,9 @@ export type Follows = {
 export type SubState = {
   service: string
   cursor: number
+}
+
+export type Subscriber = {
+  handle: string
+  did: string
 }
