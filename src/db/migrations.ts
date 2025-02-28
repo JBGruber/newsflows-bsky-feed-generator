@@ -20,6 +20,9 @@ migrations['001'] = {
       .addColumn('text', 'text', (col) => col.notNull())
       .addColumn('rootUri', 'varchar', (col) => col.notNull())
       .addColumn('rootCid', 'varchar', (col) => col.notNull())
+      .addColumn('linkUrl', 'varchar', (col) => col.notNull())
+      .addColumn('linkTitle', 'varchar', (col) => col.notNull())
+      .addColumn('linkDescription', 'varchar', (col) => col.notNull())
       .execute()
     await db.schema
       .createTable('engagement')

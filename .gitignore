@@ -136,3 +136,5 @@ dist
 # JBG added
 db.sqlite
 lab.R
+example_posts/
+db_work.sqlite

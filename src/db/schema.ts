@@ -14,6 +14,9 @@ export type Post = {
   text: string
   rootUri: string
   rootCid: string
+  linkUrl: string
+  linkTitle: string
+  linkDescription: string
 }
 
 export type Engagement = {

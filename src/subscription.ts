@@ -3,7 +3,11 @@ import {
   isCommit,
 } from './lexicon/types/com/atproto/sync/subscribeRepos'
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
-// import fs from 'fs'
+
+// for saving embedded preview cards
+function isExternalEmbed(embed: any): embed is { external: { uri: string, title: string, description: string } } {
+  return embed && embed.external && typeof embed.external.uri === 'string';
+}
 
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
   async handleEvent(evt: RepoEvent) {
@@ -18,8 +22,6 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     //   console.log(post.record.text)
     // }
 
-    // Save ops.posts as a JSON file for debugging
-    // fs.appendFileSync('test.json', JSON.stringify(ops, null, 2), 'utf-8')
 
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
@@ -33,13 +35,17 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
           text: create.record.text,
           rootUri: create.record.reply?.root?.uri || "",
           rootCid: create.record.reply?.root?.cid || "",
+          // extract preview card info if present
+          linkUrl: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.uri : "",
+          linkTitle: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.title : "",
+          linkDescription: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.description : "",
         }
-      })    
+      })
 
     // likes + reposts = engagement
     const engagementsToDelete = ops.reposts.deletes.map((del) => del.uri).concat(
-        ops.likes.deletes.map((del) => del.uri)
-      )
+      ops.likes.deletes.map((del) => del.uri)
+    )
     const engagementsToCreate = ops.reposts.creates
       .map((create) => {
         return {
@@ -63,7 +69,7 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
             }
           })
       )
-    
+
     if (postsToDelete.length > 0) {
       await this.db
         .deleteFrom('post')
