@@ -2,7 +2,6 @@ import express from 'express'
 import { AtpAgent } from '@atproto/api'
 import { Server } from '../lexicon'
 import { AppContext } from '../config'
-import { Database } from '../db'
 
 // Create a global agent to be reused
 const agent = new AtpAgent({ 

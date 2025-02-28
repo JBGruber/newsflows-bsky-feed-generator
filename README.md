@@ -1,4 +1,4 @@
-
+To import subscribers, create csv file subscribers.csv in the project directory. Should have columns handle and did, supply either, the other will be looked up.
 
 Start Feed generator (Terminal 1):
 

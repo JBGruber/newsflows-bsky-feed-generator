@@ -5,7 +5,8 @@ import { DidResolver, MemoryCache } from '@atproto/identity'
 import { createServer } from './lexicon'
 import feedGeneration from './methods/feed-generation'
 import describeGenerator from './methods/describe-generator'
-import registerSubscribeEndpoint from './methods/subscribe' // Add this import
+import registerSubscribeEndpoint from './methods/subscribe'
+import { importSubscribersFromCSV } from './util/import-subscribers'
 import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
@@ -70,6 +71,12 @@ export class FeedGenerator {
     this.firehose.run(this.cfg.subscriptionReconnectDelay)
     this.server = this.app.listen(this.cfg.port, this.cfg.listenhost)
     await events.once(this.server, 'listening')
+    // Import subscribers at startup
+    try {
+      await importSubscribersFromCSV(this.db);
+    } catch (err) {
+      console.error('Failed to import subscribers:', err);
+    }
     return this.server
   }
 }
