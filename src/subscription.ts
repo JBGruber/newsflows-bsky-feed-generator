@@ -3,36 +3,6 @@ import {
   isCommit,
 } from './lexicon/types/com/atproto/sync/subscribeRepos'
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
-import fs from 'fs'
-
-const path = require('path');
-
-// Make sure the directory exists
-const ensureDirectoryExists = (dirPath) => {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-};
-
-// Function to save post as JSON file
-const savePostAsJson = (post, directory) => {
-  ensureDirectoryExists(directory);
-  
-  // Extract a valid filename from the URI
-  // URIs typically look like: at://did:plc:abcdef/app.bsky.feed.post/12345
-  const filename = post.uri
-    .replace(/^at:\/\//, '')  // Remove at:// prefix
-    .replace(/\//g, '_')      // Replace / with _
-    .replace(/:/g, '-')       // Replace : with -
-    + '.json';                // Add .json extension
-  
-  const filePath = path.join(directory, filename);
-  
-  // Write the full post object to file
-  fs.writeFileSync(filePath, JSON.stringify(post, null, 2));
-  
-  return filePath;
-};
 
 // for saving embedded preview cards
 function isExternalEmbed(embed: any): embed is { external: { uri: string, title: string, description: string } } {
@@ -56,9 +26,6 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .map((create) => {
-        // Save the full post
-        savePostAsJson(create, './example_posts');
-
         return {
           uri: create.uri,
           cid: create.cid,
