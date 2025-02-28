@@ -138,4 +138,5 @@ db.sqlite
 lab.R
 example_posts/
 db_work.sqlite
+db.sqlite-journal
 subscribers.csv

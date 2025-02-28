@@ -11,6 +11,7 @@ import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
 import wellKnown from './well-known'
+import { setupFollowsUpdateScheduler, stopAllSchedulers } from './util/scheduled-follows-updater'
 
 export class FeedGenerator {
   public app: express.Application
@@ -18,6 +19,7 @@ export class FeedGenerator {
   public db: Database
   public firehose: FirehoseSubscription
   public cfg: Config
+  private followsUpdateTimer?: NodeJS.Timeout
 
   constructor(
     app: express.Application,
@@ -71,13 +73,36 @@ export class FeedGenerator {
     this.firehose.run(this.cfg.subscriptionReconnectDelay)
     this.server = this.app.listen(this.cfg.port, this.cfg.listenhost)
     await events.once(this.server, 'listening')
+    
     // Import subscribers at startup
     try {
       await importSubscribersFromCSV(this.db);
     } catch (err) {
       console.error('Failed to import subscribers:', err);
     }
+    
+    // Set up the scheduler to update follows
+    // Run once every hour by default (or override with env var)
+    const updateInterval = parseInt(process.env.FOLLOWS_UPDATE_INTERVAL_MS || '', 10) || 60 * 60 * 1000;
+    console.log(`Setting up follows updater to run every ${updateInterval/1000} seconds`);
+    this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval);
+    
     return this.server
+  }
+  
+  async stop(): Promise<void> {
+    // Stop the scheduler
+    stopAllSchedulers();
+    
+    // Close the server if it's running
+    if (this.server) {
+      await new Promise<void>((resolve, reject) => {
+        this.server?.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+    }
   }
 }
 
