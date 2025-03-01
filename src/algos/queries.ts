@@ -41,9 +41,24 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
     let retryCount = 0;
     const maxRetries = 3;
     const retryDelay = 1000; // 1 second
+
+    // Get existing follows from DB to avoid refetching everything
+    const existingFollows = await db
+        .selectFrom('follows')
+        .select(['follows'])
+        .where('subject', '=', actor)
+        .execute();
+    
+    // Create a Set for faster lookups
+    const existingFollowsSet = new Set(existingFollows.map(f => f.follows));
+    console.log(`Found ${existingFollowsSet.size} existing follows in database for ${actor}`);
+    
+    // If we already have follows, we might be able to stop early
+    let allExistInDb = false;
     
     // Function to delay execution
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 
     do {
         try {
@@ -61,7 +76,7 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             }
             
             const data = await response.json() as FollowsResponse;
-
+            
             if (!data.follows || !Array.isArray(data.follows)) {
                 console.warn(`Unexpected response format for ${actor}:`, data);
                 break;
@@ -72,6 +87,16 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
                 subject: actor,
                 follows: follow.did,
             }));
+
+            // Check if all DIDs in this page already exist in the database
+            if (existingFollowsSet.size > 0) {
+                allExistInDb = data.follows.every(follow => existingFollowsSet.has(follow.did));
+                if (allExistInDb) {
+                    process.stdout.write('\n');
+                    console.log(`🔄 All follows in current page already exist in database, stopping fetch for ${actor}`);
+                    break; // Exit the loop since we've reached already stored follows
+                }
+            }
 
             allFollows = [...allFollows, ...simplifiedFollows];
             currentCursor = data.cursor;
@@ -88,7 +113,7 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             // Implement retry logic
             retryCount++;
             if (retryCount <= maxRetries) {
-                console.log(`Retrying (${retryCount}/${maxRetries}) after ${retryDelay}ms...`);
+                console.warn(`Retry ${retryCount}/${maxRetries} after delay...`, true);
                 await delay(retryDelay * retryCount); // Exponential backoff
                 continue; // Retry the current cursor
             }
@@ -97,7 +122,7 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             console.warn(`Maximum retries exceeded for ${actor}, proceeding with ${allFollows.length} follows`);
             break;
         }
-    } while (currentCursor);
+    } while (currentCursor && !allExistInDb);
 
     console.log(`Fetched a total of ${allFollows.length} follows for ${actor}`);
 
@@ -107,6 +132,8 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             const batchSize = 500;
             for (let i = 0; i < allFollows.length; i += batchSize) {
                 const batch = allFollows.slice(i, i + batchSize);
+                
+                console.log(`Inserting batch ${i / batchSize + 1}/${Math.ceil(allFollows.length/batchSize)} for ${actor}`, true);
                 await db
                     .insertInto('follows')
                     .values(batch)
