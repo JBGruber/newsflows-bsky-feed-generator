@@ -7,12 +7,9 @@ import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'  // Impor
 export const shortname = 'newsflow-nl-1'
 
 export const handler = async (ctx: AppContext, params: QueryParams, requesterDid: string) => {
-  console.log("Feed", shortname, "requested:", new Date().toISOString())
+  console.log("Feed", shortname, "requested by", requesterDid, "at", new Date().toISOString())
   const publisherDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   const limit = Math.floor(params.limit / 2); // 50% from each source
-
-  // const follows = await getFollows(requesterDid, ctx.db)
-  // TODO: trigger API call to update follows periodically, not just here
   const requesterFollows = await getFollows(requesterDid, ctx.db)
 
   // Fetch posts from our News account
@@ -30,21 +27,13 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   }
 
   const publisherPosts = await publisherPostsQuery.execute();
+  console.log(`Serving ${publisherPosts.length} posts from Dutch news`)
 
-  // console.log("Follows of", requesterDid, "are:", requesterFollows)
   // Fetch posts by follows
-
   let otherPostsQuery = ctx.db
     .selectFrom('post')
-    .selectAll();
-
-  // if no follows are found, feed contains random posts
-  if (requesterFollows.length > 0) {
-    console.log(requesterFollows.length, "follows")
-    otherPostsQuery = otherPostsQuery
-      .where((eb) => eb('author', 'in', requesterFollows));
-  }
-  otherPostsQuery = otherPostsQuery
+    .selectAll()
+    .where((eb) => eb('author', 'in', requesterFollows))
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
     .limit(limit);
@@ -55,6 +44,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   }
 
   const otherPosts = await otherPostsQuery.execute();
+  console.log(`Serving ${otherPosts.length} posts from ${requesterFollows.length} follows`)
 
   // Merge both post lists in an alternating pattern
   const feed: SkeletonFeedPost[] = [];

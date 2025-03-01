@@ -23,3 +23,5 @@ Publish to Bluesky (Terminal 2):
 ```bash
 yarn publishFeed
 ```
+
+Subscription endpoint: <http://localhost:3000/api/subscribe?handle=news-flows-nl.bsky.social>

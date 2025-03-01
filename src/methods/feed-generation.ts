@@ -2,7 +2,7 @@ import { InvalidRequestError } from '@atproto/xrpc-server'
 import { Server } from '../lexicon'
 import { AppContext } from '../config'
 import algos from '../algos'
-import { validateAuth } from '../auth'
+import { extractDidFromAuth } from '../auth'
 import { AtUri } from '@atproto/syntax'
 import fs from 'fs'
 
@@ -23,20 +23,29 @@ export default function (server: Server, ctx: AppContext) {
     // set publisher as default to not have empty did
     let requesterDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
     try {
-      requesterDid = await validateAuth(
-        req,
-        ctx.cfg.serviceDid,
-        ctx.didResolver,
+      requesterDid = await extractDidFromAuth(
+        req
       )
-      console.log("Requester:", requesterDid)
     } catch (e) {
       console.error(e)
     }
-
-    const body = await algo(ctx, params, requesterDid)
-    return {
-      encoding: 'application/json',
-      body: body,
+    let whitelist = await ctx.db
+      .selectFrom('subscriber')
+      .selectAll()
+      .where('did', '=', requesterDid)
+      .execute()
+    if (whitelist.length > 0) {
+      const body = await algo(ctx, params, requesterDid)
+      return {
+        encoding: 'application/json',
+        body: body,
+      }
+    } else {
+      console.log("not on whitelist");
+      return {
+        encoding: 'application/json',
+        body: { "feed": [] },
+      }
     }
   })
 }
