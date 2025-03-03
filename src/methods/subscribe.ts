@@ -4,7 +4,7 @@ import { Server } from '../lexicon'
 import { AppContext } from '../config'
 
 // Create a global agent to be reused
-const agent = new AtpAgent({ 
+const agent = new AtpAgent({
   service: 'https://bsky.social'
 });
 
@@ -13,9 +13,9 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
     const { handle, did } = req.query;
     // Validate that either handle or did is provided
     if (!handle && !did) {
-      return res.status(400).json({ 
-        error: 'BadRequest', 
-        message: 'Either handle or did must be provided' 
+      return res.status(400).json({
+        error: 'BadRequest',
+        message: 'Either handle or did must be provided'
       });
     }
 
@@ -29,9 +29,9 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
           const handleResolveResult = await agent.resolveHandle({ handle: resolvedHandle as string });
           resolvedDid = handleResolveResult.data.did;
         } catch (err) {
-          return res.status(404).json({ 
-            error: 'NotFound', 
-            message: `Could not resolve DID for handle: ${resolvedHandle}` 
+          return res.status(404).json({
+            error: 'NotFound',
+            message: `Could not resolve DID for handle: ${resolvedHandle}`
           });
         }
       }
@@ -42,9 +42,9 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
           const profileResult = await agent.getProfile({ actor: resolvedDid as string });
           resolvedHandle = profileResult.data.handle;
         } catch (err) {
-          return res.status(404).json({ 
-            error: 'NotFound', 
-            message: `Could not resolve handle for DID: ${resolvedDid}` 
+          return res.status(404).json({
+            error: 'NotFound',
+            message: `Could not resolve handle for DID: ${resolvedDid}`
           });
         }
       }
@@ -53,11 +53,15 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
       await ctx.db
         .insertInto('subscriber')
         .values({
-            handle: resolvedHandle as string,
-            did: resolvedDid as string
+          handle: resolvedHandle as string,
+          did: resolvedDid as string
         })
         .onConflict((oc) => oc.doNothing())
         .execute()
+
+      // Trigger background follows update without blocking the response
+      const { triggerFollowsUpdateForSubscriber } = require('../util/scheduled-follows-updater');
+      triggerFollowsUpdateForSubscriber(ctx.db, resolvedDid as string);
 
       // Return the resolved identifiers
       return res.json({
@@ -67,9 +71,9 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
       });
     } catch (error) {
       console.error('Error in subscribe endpoint:', error);
-      return res.status(500).json({ 
-        error: 'InternalServerError', 
-        message: 'An unexpected error occurred' 
+      return res.status(500).json({
+        error: 'InternalServerError',
+        message: 'An unexpected error occurred'
       });
     }
   });

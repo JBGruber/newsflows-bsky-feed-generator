@@ -10,6 +10,7 @@ let activeTimers: NodeJS.Timeout[] = [];
  */
 export async function updateAllSubscriberFollows(db: Database): Promise<void> {
   try {
+    // TODO: remove some of these log messages if everything is working
     console.log('Starting scheduled update of subscriber follows...');
     
     // Get all subscribers from the database
@@ -62,6 +63,20 @@ export function setupFollowsUpdateScheduler(
   // Add to active timers list
   activeTimers.push(timerId);
   return timerId;
+}
+
+// Updates follows for a single subscriber without blocking
+export function triggerFollowsUpdateForSubscriber(db: Database, did: string): void {
+  // Run in the next event loop tick to avoid blocking
+  setTimeout(async () => {
+    try {
+      console.log(`Background update: fetching follows for new subscriber ${did}`);
+      await getFollowsApi(did, db);
+      console.log(`Background update: completed fetching follows for ${did}`);
+    } catch (error) {
+      console.error(`Error updating follows for ${did}:`, error);
+    }
+  }, 0);
 }
 
 /**
