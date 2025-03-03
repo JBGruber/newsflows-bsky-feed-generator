@@ -10,11 +10,11 @@ const run = async () => {
     port: maybeInt(process.env.FEEDGEN_PORT) ?? 3000,
     listenhost: maybeStr(process.env.FEEDGEN_LISTENHOST) ?? 'localhost',
     postgresUrl: maybeStr(process.env.FEEDGEN_POSTGRES_URL),
-    pgHost: maybeStr(process.env.FEEDGEN_PG_HOST) ?? 'localhost',
-    pgPort: maybeInt(process.env.FEEDGEN_PG_PORT) ?? 5432,
-    pgUser: maybeStr(process.env.FEEDGEN_PG_USER) ?? 'feedgen',
-    pgPassword: maybeStr(process.env.FEEDGEN_PG_PASSWORD) ?? 'feedgen',
-    pgDatabase: maybeStr(process.env.FEEDGEN_PG_DATABASE) ?? 'feedgen-db',
+    pgHost: maybeStr(process.env.FEEDGEN_DB_HOST) ?? 'localhost',
+    pgPort: maybeInt(process.env.FEEDGEN_DB_PORT) ?? 5432,
+    pgUser: maybeStr(process.env.FEEDGEN_DB_USER) ?? 'feedgen',
+    pgPassword: maybeStr(process.env.FEEDGEN_DB_PASSWORD) ?? 'feedgen',
+    pgDatabase: maybeStr(process.env.FEEDGEN_DB_DATABASE) ?? 'feedgen-db',
     subscriptionEndpoint:
       maybeStr(process.env.FEEDGEN_SUBSCRIPTION_ENDPOINT) ??
       'wss://bsky.network',

@@ -1,0 +1,59 @@
+services:
+  feedgen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: feedgen
+    hostname: feedgen
+    # restart: unless-stopped
+    ports:
+      - "3000:3000"
+    logging:
+      options:
+        max-size: 10m
+    volumes:
+      - data:/app/data
+    environment:
+      NODE_ENV: production
+      FEEDGEN_PORT: 3000
+      FEEDGEN_SUBSCRIPTION_ENDPOINT: ${FEEDGEN_SUBSCRIPTION_ENDPOINT:-wss://bsky.network}
+      FEEDGEN_HOSTNAME: ${FEEDGEN_HOSTNAME:-example.com}
+      FEEDGEN_PUBLISHER_DID: ${FEEDGEN_PUBLISHER_DID}
+      FEEDGEN_SQLITE_LOCATION: ${FEEDGEN_SQLITE_LOCATION:-/app/data/db.sqlite}
+      FOLLOWS_UPDATE_INTERVAL_MS: ${FOLLOWS_UPDATE_INTERVAL_MS:-3600000}
+      # Database connection details
+      FEEDGEN_DB_HOST: ${FEEDGEN_DB_HOST:-feedgen-db}
+      FEEDGEN_DB_PORT: ${FEEDGEN_DB_PORT:-5432}
+      FEEDGEN_DB_USER: ${FEEDGEN_DB_USER:-feedgen}
+      FEEDGEN_DB_PASSWORD: ${FEEDGEN_DB_PASSWORD:-feedgen}
+      FEEDGEN_DB_BASE: ${FEEDGEN_DB_BASE:-feedgen-db}
+    depends_on:
+      - feedgen-db
+
+  feedgen-db:
+    image: postgres:17
+    container_name: feedgen-db
+    hostname: feedgen-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    logging:
+      options:
+        max-size: 10m
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${FEEDGEN_DBBASE:-feedgen-db}
+      POSTGRES_USER: ${FEEDGEN_DBUSER:-feedgen}
+      POSTGRES_PASSWORD: ${FEEDGEN_DBPASSWORD:-feedgen}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - work_mem=32MB
+
+volumes:
+  data:
+  extensions:
+  db:
