@@ -33,7 +33,7 @@ export async function getFollows(actor: string, db): Promise<string[]> {
     return getFollowsApi(actor, db);
 }
 
-export async function getFollowsApi(actor: string, db): Promise<string[]> {
+export async function getFollowsApi(actor: string, db, updateAll: boolean = false): Promise<string[]> {
     console.log(`Fetching follows from API for ${actor}`);
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows';
     let allFollows: SimplifiedFollow[] = [];
@@ -48,14 +48,14 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
         .select(['follows'])
         .where('subject', '=', actor)
         .execute();
-    
+
     // Create a Set for faster lookups
     const existingFollowsSet = new Set(existingFollows.map(f => f.follows));
     console.log(`Found ${existingFollowsSet.size} existing follows in database for ${actor}`);
-    
+
     // If we already have follows, we might be able to stop early
     let allExistInDb = false;
-    
+
     // Function to delay execution
     const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -70,18 +70,18 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             }
             console.log(`Fetching page of follows for ${actor} [got ${allFollows.length}]`);
             const response = await fetch(url.toString());
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}, message: ${await response.text()}`);
             }
-            
+
             const data = await response.json() as FollowsResponse;
-            
+
             if (!data.follows || !Array.isArray(data.follows)) {
                 console.warn(`Unexpected response format for ${actor}:`, data);
                 break;
             }
-            
+
             // Map the follows to a simpler structure for database storage
             const simplifiedFollows = data.follows.map(follow => ({
                 subject: actor,
@@ -89,10 +89,9 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             }));
 
             // Check if all DIDs in this page already exist in the database
-            if (existingFollowsSet.size > 0) {
+            if (existingFollowsSet.size > 0 && !updateAll) {
                 allExistInDb = data.follows.every(follow => existingFollowsSet.has(follow.did));
                 if (allExistInDb) {
-                    process.stdout.write('\n');
                     console.log(`🔄 All follows in current page already exist in database, stopping fetch for ${actor}`);
                     break; // Exit the loop since we've reached already stored follows
                 }
@@ -101,15 +100,15 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             allFollows = [...allFollows, ...simplifiedFollows];
             currentCursor = data.cursor;
             retryCount = 0; // Reset retry count on success
-            
+
             // If we got a lot of follows, log progress
             if (allFollows.length > 0 && allFollows.length % 500 === 0) {
                 console.log(`Fetched ${allFollows.length} follows for ${actor} so far...`);
             }
-            
+
         } catch (error) {
             console.error(`Error fetching follows for ${actor}:`, error);
-            
+
             // Implement retry logic
             retryCount++;
             if (retryCount <= maxRetries) {
@@ -117,7 +116,7 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
                 await delay(retryDelay * retryCount); // Exponential backoff
                 continue; // Retry the current cursor
             }
-            
+
             // If we've exceeded retries, break the loop and work with what we have
             console.warn(`Maximum retries exceeded for ${actor}, proceeding with ${allFollows.length} follows`);
             break;
@@ -132,14 +131,14 @@ export async function getFollowsApi(actor: string, db): Promise<string[]> {
             const batchSize = 500;
             for (let i = 0; i < allFollows.length; i += batchSize) {
                 const batch = allFollows.slice(i, i + batchSize);
-                
-                console.log(`Inserting batch ${i / batchSize + 1}/${Math.ceil(allFollows.length/batchSize)} for ${actor}`, true);
+
+                console.log(`Inserting batch ${i / batchSize + 1}/${Math.ceil(allFollows.length / batchSize)} for ${actor}`, true);
                 await db
                     .insertInto('follows')
                     .values(batch)
                     .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
                     .execute();
-                
+
                 console.log(`Inserted batch ${i / batchSize + 1} of follows for ${actor}`);
             }
             console.log(`Successfully stored all ${allFollows.length} follows for ${actor} in database`);

@@ -8,7 +8,7 @@ let activeTimers: NodeJS.Timeout[] = [];
  * Updates follows data for all subscribers in the database
  * This runs as a scheduled task to keep follow data fresh
  */
-export async function updateAllSubscriberFollows(db: Database): Promise<void> {
+export async function updateAllSubscriberFollows(db: Database, updateAll: boolean = false): Promise<void> {
   try {
     // TODO: remove some of these log messages if everything is working
     console.log('Starting scheduled update of subscriber follows...');
@@ -26,7 +26,7 @@ export async function updateAllSubscriberFollows(db: Database): Promise<void> {
       try {
         console.log(`Updating follows for ${subscriber.did}`);
         // Call getFollowsApi to fetch and store the follows
-        await getFollowsApi(subscriber.did, db);
+        await getFollowsApi(subscriber.did, db, updateAll);
       } catch (error) {
         // Log errors but continue with other subscribers
         console.error(`Error updating follows for ${subscriber.did}:`, error);
@@ -42,7 +42,8 @@ export async function updateAllSubscriberFollows(db: Database): Promise<void> {
 export function setupFollowsUpdateScheduler(
   db: Database, 
   intervalMs: number = 60 * 60 * 1000, // Default: 1 hour
-  runImmediately: boolean = true
+  runImmediately: boolean = true,
+  updateAll: boolean = false
 ): NodeJS.Timeout {
   console.log(`Setting up follows update scheduler to run every ${intervalMs/1000} seconds`);
   
@@ -55,7 +56,7 @@ export function setupFollowsUpdateScheduler(
   
   // Set up recurring interval
   const timerId = setInterval(() => {
-    updateAllSubscriberFollows(db).catch(err => {
+    updateAllSubscriberFollows(db, updateAll).catch(err => {
       console.error('Error in scheduled follows update:', err);
     });
   }, intervalMs);

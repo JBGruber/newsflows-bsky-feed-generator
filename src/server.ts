@@ -86,6 +86,8 @@ export class FeedGenerator {
     const updateInterval = parseInt(process.env.FOLLOWS_UPDATE_INTERVAL_MS || '', 10) || 60 * 60 * 1000;
     console.log(`Setting up follows updater to run every ${updateInterval/1000} seconds`);
     this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval);
+    // TODO: update all follows, including removals, periodically
+    // this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval * 24, false, true);
     
     return this.server
   }
