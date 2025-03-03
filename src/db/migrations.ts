@@ -42,12 +42,25 @@ migrations['001'] = {
     await db.schema
       .createTable('sub_state')
       .addColumn('service', 'varchar', (col) => col.primaryKey())
-      .addColumn('cursor', 'integer', (col) => col.notNull())
+      .addColumn('cursor', 'bigint', (col) => col.notNull())
       .execute()
     await db.schema
       .createTable('subscriber')
       .addColumn('handle', 'varchar', (col) => col.notNull())
       .addColumn('did', 'varchar', (col) => col.primaryKey())
+      .execute()
+
+    // indexes should bring performance
+    await db.schema
+      .createIndex('post_author_index')
+      .on('post')
+      .column('author')
+      .execute()
+
+    await db.schema
+      .createIndex('follows_subject_index')
+      .on('follows')
+      .column('subject')
       .execute()
   },
   async down(db: Kysely<unknown>) {

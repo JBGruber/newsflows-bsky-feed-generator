@@ -35,7 +35,8 @@ export class FeedGenerator {
 
   static create(cfg: Config) {
     const app = express()
-    const db = createDb(cfg.sqliteLocation)
+    const db = createDb(cfg.postgresUrl ||
+      `postgres://${cfg.pgUser}:${cfg.pgPassword}@${cfg.pgHost}:${cfg.pgPort}/${cfg.pgDatabase}`)
     const firehose = new FirehoseSubscription(db, cfg.subscriptionEndpoint)
 
     const didCache = new MemoryCache()
@@ -61,7 +62,7 @@ export class FeedGenerator {
     describeGenerator(server, ctx)
     app.use(server.xrpc.router)
     app.use(wellKnown(ctx))
-    
+
     // Add the new subscribe endpoint
     registerSubscribeEndpoint(server, ctx)
 
@@ -73,28 +74,32 @@ export class FeedGenerator {
     this.firehose.run(this.cfg.subscriptionReconnectDelay)
     this.server = this.app.listen(this.cfg.port, this.cfg.listenhost)
     await events.once(this.server, 'listening')
-    
+
     // Import subscribers at startup
     try {
       await importSubscribersFromCSV(this.db);
     } catch (err) {
       console.error('Failed to import subscribers:', err);
     }
-    
+
     // Set up the scheduler to update follows
     // Run once every hour by default (or override with env var)
     const updateInterval = parseInt(process.env.FOLLOWS_UPDATE_INTERVAL_MS || '', 10) || 60 * 60 * 1000;
-    console.log(`Setting up follows updater to run every ${updateInterval/1000} seconds`);
+    console.log(`Setting up follows updater to run every ${updateInterval / 1000} seconds`);
     this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval);
     // TODO: update all follows, including removals, periodically
     // this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval * 24, false, true);
-    
+
     return this.server
   }
-  
+
   async stop(): Promise<void> {
     // Stop the scheduler
     stopAllSchedulers();
+    
+    if (this.db) {
+      await this.db.destroy();
+    }
     
     // Close the server if it's running
     if (this.server) {

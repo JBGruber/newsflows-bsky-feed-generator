@@ -57,9 +57,10 @@ export abstract class FirehoseSubscriptionBase {
   }
 
   async updateCursor(cursor: number) {
+    const bigintCursor = BigInt(cursor);
     await this.db
       .updateTable('sub_state')
-      .set({ cursor })
+      .set({ cursor: bigintCursor })
       .where('service', '=', this.service)
       .execute()
   }
@@ -70,7 +71,8 @@ export abstract class FirehoseSubscriptionBase {
       .selectAll()
       .where('service', '=', this.service)
       .executeTakeFirst()
-    return res ? { cursor: res.cursor } : {}
+    
+    return res ? { cursor: Number(res.cursor) } : {}
   }
 }
 

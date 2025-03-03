@@ -127,25 +127,17 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
 
     if (allFollows.length > 0) {
         try {
-            // Batch insert follows to avoid potential transaction size limits
-            const batchSize = 500;
-            for (let i = 0; i < allFollows.length; i += batchSize) {
-                const batch = allFollows.slice(i, i + batchSize);
-
-                console.log(`Inserting batch ${i / batchSize + 1}/${Math.ceil(allFollows.length / batchSize)} for ${actor}`, true);
-                await db
-                    .insertInto('follows')
-                    .values(batch)
-                    .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
-                    .execute();
-
-                console.log(`Inserted batch ${i / batchSize + 1} of follows for ${actor}`);
-            }
+            await db
+                .insertInto('follows')
+                .values(allFollows)
+                .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
+                .execute();
             console.log(`Successfully stored all ${allFollows.length} follows for ${actor} in database`);
         } catch (dbError) {
             console.error(`Database error while storing follows for ${actor}:`, dbError);
         }
     }
+
 
     return allFollows.map((entry) => entry.follows);
 }
