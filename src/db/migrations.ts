@@ -62,6 +62,23 @@ migrations['001'] = {
       .on('follows')
       .column('subject')
       .execute()
+
+    await db.schema
+      .createTable('request_log')
+      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+      .addColumn('algo', 'varchar', (col) => col.notNull())
+      .addColumn('requester_did', 'varchar', (col) => col.notNull())
+      .addColumn('timestamp', 'varchar', (col) => col.notNull())
+      .execute()
+
+    await db.schema
+      .createTable('request_posts')
+      .addColumn('position', 'integer', (col) => col.notNull())
+      .addColumn('request_id', 'integer', (col) => col.notNull().references('request_log.id'))
+      .addColumn('post_uri', 'varchar', (col) => col.notNull())
+      .addPrimaryKeyConstraint('request_posts_pk', ['request_id', 'post_uri'])
+      .execute()
+
   },
   async down(db: Kysely<unknown>) {
     await db.schema.dropTable('post').execute()

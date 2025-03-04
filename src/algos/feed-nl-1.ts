@@ -33,6 +33,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   let otherPostsQuery = ctx.db
     .selectFrom('post')
     .selectAll()
+    .where('author', '!=', publisherDid)
     .where((eb) => eb('author', 'in', requesterFollows))
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
@@ -66,6 +67,37 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   if (lastPost) {
     cursor = new Date(lastPost.indexedAt).getTime().toString(10);
   }
+
+  // log request to database (non-blocking)
+  setTimeout(async () => {
+    try {
+      const timestamp = new Date().toISOString();
+      const requestInsertResult = await ctx.db
+        .insertInto('request_log')
+        .values({
+          algo: shortname,
+          requester_did: requesterDid,
+          timestamp: timestamp
+        })
+        .returning('id')
+        .executeTakeFirstOrThrow();
+
+      if (feed.length > 0) {
+        const postValues = feed.map((post, index) => ({
+          position: index + 1,
+          request_id: requestInsertResult.id as number,
+          post_uri: post.post
+        }));
+        await ctx.db
+          .insertInto('request_posts')
+          .values(postValues)
+          .execute();
+      }
+
+    } catch (error) {
+      console.error('Error logging request:', error);
+    }
+  }, 0);
 
   return {
     cursor,

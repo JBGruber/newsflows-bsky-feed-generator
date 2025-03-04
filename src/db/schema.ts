@@ -4,6 +4,8 @@ export type DatabaseSchema = {
   follows: Follows
   sub_state: SubState
   subscriber: Subscriber
+  request_log: RequestLog
+  request_posts: RequestPosts
 }
 
 export type Post = {
@@ -42,4 +44,17 @@ export type SubState = {
 export type Subscriber = {
   handle: string
   did: string
+}
+
+export type RequestLog = {
+  id?: number
+  algo: string
+  requester_did: string
+  timestamp: string
+}
+
+export type RequestPosts = {
+  position: number
+  request_id: number
+  post_uri: string
 }
