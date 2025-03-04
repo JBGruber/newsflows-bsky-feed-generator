@@ -5,9 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: feedgen
     hostname: feedgen
-    # restart: unless-stopped
-    ports:
-      - "3000:3000"
+    restart: unless-stopped
+    # Remove direct port exposure since Caddy will handle this
+    # ports:
+      # - "3000:3000"
     logging:
       options:
         max-size: 10m
@@ -53,7 +54,28 @@ services:
       - -c
       - work_mem=32MB
 
+  feedgen-caddy:
+    image: caddy:alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # For HTTP/3 support
+    environment:
+      DOMAIN: ${FEEDGEN_HOSTNAME:-example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_certs:/certs
+    depends_on:
+      - feedgen
+
 volumes:
   data:
   extensions:
   db:
+  caddy_data:
+  caddy_config:
+  caddy_certs:

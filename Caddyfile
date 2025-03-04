@@ -1,0 +1,46 @@
+{
+    # Global options
+    email admin@{$DOMAIN}
+    # Use automatic HTTPS
+    auto_https
+}
+
+# Main site configuration
+{$DOMAIN} {
+    # Enable compression
+    encode zstd gzip
+
+    # Enable automatic HTTPS
+    tls {
+        # Automatically manage certificates
+    }
+
+    # Log all requests
+    log {
+        level INFO
+    }
+
+    # Reverse proxy to the feedgen service
+    reverse_proxy feedgen:3000 {
+        # Health checks
+        health_path /xrpc/app.bsky.feed.describeFeedGenerator
+        health_interval 30s
+        health_timeout 5s
+
+        # Headers
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Handle root requests - optional redirect to docs or status page
+    handle / {
+        respond "Feed Generator is running. Use a BlueSky client to access." 200
+    }
+}
+
+# Redirect www to non-www
+www.{$DOMAIN} {
+    redir https://{$DOMAIN}{uri} permanent
+}
