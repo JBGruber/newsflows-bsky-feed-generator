@@ -19,7 +19,6 @@ interface SimplifiedFollow {
 
 // Query local database to find follows; use API call if nothing is found
 export async function getFollows(actor: string, db): Promise<string[]> {
-    console.log("Requesting follows for:", actor)
     const followsDid = await db
         .selectFrom('follows')
         .select(['follows'])
@@ -34,7 +33,6 @@ export async function getFollows(actor: string, db): Promise<string[]> {
 }
 
 export async function getFollowsApi(actor: string, db, updateAll: boolean = false): Promise<string[]> {
-    console.log(`Fetching follows from API for ${actor}`);
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows';
     let allFollows: SimplifiedFollow[] = [];
     let currentCursor: string | undefined = undefined;
@@ -51,7 +49,6 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
 
     // Create a Set for faster lookups
     const existingFollowsSet = new Set(existingFollows.map(f => f.follows));
-    console.log(`Found ${existingFollowsSet.size} existing follows in database for ${actor}`);
 
     // If we already have follows, we might be able to stop early
     let allExistInDb = false;
@@ -68,7 +65,6 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
             if (currentCursor) {
                 url.searchParams.append('cursor', currentCursor);
             }
-            console.log(`Fetching page of follows for ${actor} [got ${allFollows.length}]`);
             const response = await fetch(url.toString());
 
             if (!response.ok) {
@@ -92,7 +88,6 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
             if (existingFollowsSet.size > 0 && !updateAll) {
                 allExistInDb = data.follows.every(follow => existingFollowsSet.has(follow.did));
                 if (allExistInDb) {
-                    console.log(`🔄 All follows in current page already exist in database, stopping fetch for ${actor}`);
                     break; // Exit the loop since we've reached already stored follows
                 }
             }
@@ -100,11 +95,6 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
             allFollows = [...allFollows, ...simplifiedFollows];
             currentCursor = data.cursor;
             retryCount = 0; // Reset retry count on success
-
-            // If we got a lot of follows, log progress
-            if (allFollows.length > 0 && allFollows.length % 500 === 0) {
-                console.log(`Fetched ${allFollows.length} follows for ${actor} so far...`);
-            }
 
         } catch (error) {
             console.error(`Error fetching follows for ${actor}:`, error);
@@ -123,8 +113,6 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
         }
     } while (currentCursor && !allExistInDb);
 
-    console.log(`Fetched a total of ${allFollows.length} follows for ${actor}`);
-
     if (allFollows.length > 0) {
         try {
             await db
@@ -132,12 +120,13 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
                 .values(allFollows)
                 .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
                 .execute();
-            console.log(`Successfully stored all ${allFollows.length} follows for ${actor} in database`);
+            console.log(`Fetched a ${allFollows.length} new follows for ${actor}`);
         } catch (dbError) {
             console.error(`Database error while storing follows for ${actor}:`, dbError);
         }
+    } else {
+        console.log(`Follows for ${actor} were already complete`);
     }
-
 
     return allFollows.map((entry) => entry.follows);
 }

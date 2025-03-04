@@ -27,7 +27,6 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   }
 
   const publisherPosts = await publisherPostsQuery.execute();
-  console.log(`Serving ${publisherPosts.length} posts from Dutch news`)
 
   // Fetch posts by follows
   let otherPostsQuery = ctx.db
@@ -45,7 +44,6 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   }
 
   const otherPosts = await otherPostsQuery.execute();
-  console.log(`Serving ${otherPosts.length} posts from ${requesterFollows.length} follows`)
 
   // Merge both post lists in an alternating pattern
   const feed: SkeletonFeedPost[] = [];

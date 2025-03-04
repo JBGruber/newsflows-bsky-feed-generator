@@ -46,7 +46,6 @@ export const extractDidFromAuth = async (
       throw new Error('JWT missing issuer (iss) claim')
     }
     
-    console.log(`Extracted DID: ${did}`)
     return did
     
   } catch (error) {

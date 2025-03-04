@@ -10,7 +10,6 @@ let activeTimers: NodeJS.Timeout[] = [];
  */
 export async function updateAllSubscriberFollows(db: Database, updateAll: boolean = false): Promise<void> {
   try {
-    // TODO: remove some of these log messages if everything is working
     console.log('Starting scheduled update of subscriber follows...');
     
     // Get all subscribers from the database
@@ -19,21 +18,16 @@ export async function updateAllSubscriberFollows(db: Database, updateAll: boolea
       .select(['did'])
       .execute();
     
-    console.log(`Found ${subscribers.length} subscribers to update`);
+    console.log(`Starting scheduled update of follows for ${subscribers.length} subscribers`);
     
-    // Process each subscriber
     for (const subscriber of subscribers) {
       try {
-        console.log(`Updating follows for ${subscriber.did}`);
-        // Call getFollowsApi to fetch and store the follows
         await getFollowsApi(subscriber.did, db, updateAll);
       } catch (error) {
-        // Log errors but continue with other subscribers
         console.error(`Error updating follows for ${subscriber.did}:`, error);
       }
     }
     
-    console.log('Completed scheduled update of subscriber follows');
   } catch (error) {
     console.error('Error in scheduled follows update:', error);
   }
@@ -45,9 +39,7 @@ export function setupFollowsUpdateScheduler(
   runImmediately: boolean = true,
   updateAll: boolean = false
 ): NodeJS.Timeout {
-  console.log(`Setting up follows update scheduler to run every ${intervalMs/1000} seconds`);
   
-  // Run once immediately on startup if requested
   if (runImmediately) {
     updateAllSubscriberFollows(db).catch(err => {
       console.error('Error in initial follows update:', err);
@@ -73,16 +65,13 @@ export function triggerFollowsUpdateForSubscriber(db: Database, did: string): vo
     try {
       console.log(`Background update: fetching follows for new subscriber ${did}`);
       await getFollowsApi(did, db);
-      console.log(`Background update: completed fetching follows for ${did}`);
     } catch (error) {
       console.error(`Error updating follows for ${did}:`, error);
     }
   }, 0);
 }
 
-/**
- * Stop all running schedulers
- */
+// Stop all running schedulers
 export function stopAllSchedulers(): void {
   console.log(`Stopping ${activeTimers.length} active schedulers`);
   activeTimers.forEach(timerId => {
