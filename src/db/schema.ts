@@ -20,6 +20,7 @@ export type Post = {
   linkUrl: string
   linkTitle: string
   linkDescription: string
+  priority?: number
 }
 
 export type Engagement = {
