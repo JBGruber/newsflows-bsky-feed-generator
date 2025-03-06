@@ -120,7 +120,7 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
                 .values(allFollows)
                 .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
                 .execute();
-            console.log(`Fetched a ${allFollows.length} new follows for ${actor}`);
+            console.log(`Fetched ${allFollows.length} new follows for ${actor}`);
         } catch (dbError) {
             console.error(`Database error while storing follows for ${actor}:`, dbError);
         }

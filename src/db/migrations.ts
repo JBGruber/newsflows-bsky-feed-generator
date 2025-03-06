@@ -66,7 +66,7 @@ migrations['001'] = {
 
     await db.schema
       .createTable('request_log')
-      .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+      .addColumn('id', 'serial', (col) => col.primaryKey())
       .addColumn('algo', 'varchar', (col) => col.notNull())
       .addColumn('requester_did', 'varchar', (col) => col.notNull())
       .addColumn('timestamp', 'varchar', (col) => col.notNull())
