@@ -25,3 +25,27 @@ yarn publishFeed
 ```
 
 Subscription endpoint: <http://localhost:3000/api/subscribe?handle=news-flows-nl.bsky.social>
+
+
+## Build Image
+
+1. Clone the repository and navigate to folder:
+
+``` bash
+git clone https://github.com/JBGruber/newsflows-bsky-feed-generator.git
+cd newsflows-bsky-feed-generator
+```
+
+2. Build without caching to pull the newest version of all packages from GitHub:
+
+``` bash
+docker-compose down && \
+  docker-compose build --no-cache && \
+  docker-compose up -d
+```
+
+# Upload to dockerhub (for Contributors)
+
+``` bash
+docker image push --all-tags jbgruber/bsky-feedgen
+```
