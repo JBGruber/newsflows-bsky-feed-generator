@@ -9,6 +9,13 @@ function isExternalEmbed(embed: any): embed is { external: { uri: string, title:
   return embed && embed.external && typeof embed.external.uri === 'string';
 }
 
+// Helper function to sanitize strings for PostgreSQL
+function sanitizeForPostgres(text: string | null | undefined): string {
+  if (text === null || text === undefined) return '';
+  // Remove null bytes which cause PostgreSQL errors
+  return text.replace(/\0/g, '');
+}
+
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
   async handleEvent(evt: RepoEvent) {
     if (!isCommit(evt)) return
@@ -32,13 +39,17 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
           indexedAt: new Date().toISOString(),
           createdAt: create.record.createdAt,
           author: create.author,
-          text: create.record.text,
+          text: sanitizeForPostgres(create.record.text),
           rootUri: create.record.reply?.root?.uri || "",
           rootCid: create.record.reply?.root?.cid || "",
           // extract preview card info if present
           linkUrl: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.uri : "",
-          linkTitle: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.title : "",
-          linkDescription: create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.description : "",
+          linkTitle: sanitizeForPostgres(
+            create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.title : ""
+          ),
+          linkDescription: sanitizeForPostgres(
+            create.record.embed && isExternalEmbed(create.record.embed) ? create.record.embed.external.description : ""
+          ),
         }
       })
 
