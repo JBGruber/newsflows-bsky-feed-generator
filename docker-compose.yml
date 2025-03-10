@@ -14,6 +14,7 @@ services:
         max-size: 10m
     volumes:
       - data:/app/data
+      - ./subscribers.csv:/app/subscribers.csv
     environment:
       NODE_ENV: production
       FEEDGEN_PORT: 3000

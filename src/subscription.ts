@@ -53,6 +53,7 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
         }
       })
 
+      
     // likes + reposts = engagement
     const engagementsToDelete = ops.reposts.deletes.map((del) => del.uri).concat(
       ops.likes.deletes.map((del) => del.uri)
@@ -62,6 +63,8 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
         return {
           uri: create.uri,
           cid: create.cid,
+          subjectUri: create.record.subject.uri,
+          subjectCid: create.record.subject.cid,
           type: 1,
           indexedAt: new Date().toISOString(),
           createdAt: create.record.createdAt,
@@ -73,6 +76,8 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
             return {
               uri: create.uri,
               cid: create.cid,
+              subjectUri: create.record.subject.uri,
+              subjectCid: create.record.subject.cid,
               type: 2,
               indexedAt: new Date().toISOString(),
               createdAt: create.record.createdAt,

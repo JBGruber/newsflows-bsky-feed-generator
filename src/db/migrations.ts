@@ -29,6 +29,8 @@ migrations['001'] = {
       .createTable('engagement')
       .addColumn('uri', 'varchar', (col) => col.primaryKey())
       .addColumn('cid', 'varchar', (col) => col.notNull())
+      .addColumn('subjectUri', 'varchar', (col) => col.notNull())
+      .addColumn('subjectCid', 'varchar', (col) => col.notNull())
       .addColumn('type', 'integer', (col) => col.notNull())
       .addColumn('indexedAt', 'varchar', (col) => col.notNull())
       .addColumn('createdAt', 'varchar', (col) => col.notNull())

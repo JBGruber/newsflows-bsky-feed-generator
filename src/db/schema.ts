@@ -26,6 +26,8 @@ export type Post = {
 export type Engagement = {
   uri: string
   cid: string
+  subjectUri: string
+  subjectCid: string
   type: number
   indexedAt: string
   createdAt: string

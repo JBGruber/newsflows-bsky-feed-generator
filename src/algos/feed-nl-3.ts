@@ -17,7 +17,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   // Fetch posts from our News account
   let publisherPostsQuery = ctx.db
     .selectFrom('post')
-    .leftJoin('engagement', 'post.uri', 'engagement.uri')
+    .leftJoin('engagement', 'post.uri', 'engagement.subjectUri')
     .select([
       'post.uri',
       'post.cid',
@@ -31,7 +31,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
       'post.linkTitle',
       'post.linkDescription',
       // Count engagements grouped by post
-      ctx.db.fn.count<number>('engagement.uri').as('engagementCount')
+      ctx.db.fn.count<number>('engagement.subjectUri').as('engagementCount')
     ])
     .where('post.author', '=', publisherDid)
     .where('post.indexedAt', '>=', timeLimit.toISOString())
@@ -62,7 +62,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   // Fetch posts by follows
   let otherPostsQuery = ctx.db
     .selectFrom('post')
-    .leftJoin('engagement', 'post.uri', 'engagement.uri')
+    .leftJoin('engagement', 'post.uri', 'engagement.subjectUri')
     .select([
       'post.uri',
       'post.cid',
@@ -76,7 +76,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
       'post.linkTitle',
       'post.linkDescription',
       // Count engagements grouped by post
-      ctx.db.fn.count<number>('engagement.uri').as('engagementCount')
+      ctx.db.fn.count<number>('engagement.subjectUri').as('engagementCount')
     ])
     // don't consider posts older than 24 hours
     .where('post.indexedAt', '>=', timeLimit.toISOString())
