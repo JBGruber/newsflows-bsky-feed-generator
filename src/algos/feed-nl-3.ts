@@ -34,7 +34,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
       ctx.db.fn.count<number>('engagement.uri').as('engagementCount')
     ])
     .where('post.author', '=', publisherDid)
-    .where('indexedAt', '>=', timeLimit.toISOString())
+    .where('post.indexedAt', '>=', timeLimit.toISOString())
     .groupBy('post.uri')
     .groupBy('post.cid')
     .groupBy('post.indexedAt')
@@ -79,7 +79,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
       ctx.db.fn.count<number>('engagement.uri').as('engagementCount')
     ])
     // don't consider posts older than 24 hours
-    .where('indexedAt', '>=', timeLimit.toISOString())
+    .where('post.indexedAt', '>=', timeLimit.toISOString())
     .where('post.author', '!=', publisherDid)
     .where((eb) => eb('post.author', 'in', requesterFollows))
     .groupBy('post.uri')
