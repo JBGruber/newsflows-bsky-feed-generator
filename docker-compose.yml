@@ -48,12 +48,22 @@ services:
       POSTGRES_DB: ${FEEDGEN_DBBASE:-feedgen-db}
       POSTGRES_USER: ${FEEDGEN_DBUSER:-feedgen}
       POSTGRES_PASSWORD: ${FEEDGEN_DBPASSWORD:-feedgen}
+    # Add these settings for shared memory
+    shm_size: 2gb
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     command:
       - postgres
       - -c
       - shared_buffers=1GB
       - -c
       - work_mem=32MB
+      - -c
+      - max_parallel_workers_per_gather=4
+      - -c
+      - max_parallel_workers=8
 
 volumes:
   data:

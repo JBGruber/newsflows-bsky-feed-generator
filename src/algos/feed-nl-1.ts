@@ -57,6 +57,8 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     }
   }
 
+  console.log(`[${new Date().toISOString()}] - Feed ${shortname} retrieved ${publisherPosts.length} publisher posts and ${otherPosts.length} other posts`);
+
   let cursor: string | undefined;
   const lastPost = [...publisherPosts, ...otherPosts].sort((a, b) =>
     new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()

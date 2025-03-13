@@ -36,7 +36,7 @@ export default function (server: Server, ctx: AppContext) {
       .execute()
 
     const skipWhitelistCheck = process.env.FEEDGEN_SUBSCRIBER_ONLY === 'false';
-    console.log("skip whitelist ckeck:", skipWhitelistCheck)
+    if (skipWhitelistCheck) console.warn(`[${new Date().toISOString()}] - Skipping whitelist check`)
     if (skipWhitelistCheck || whitelist.length > 0) {
       const body = await algo(ctx, params, requesterDid)
       return {
