@@ -34,7 +34,10 @@ export default function (server: Server, ctx: AppContext) {
       .selectAll()
       .where('did', '=', requesterDid)
       .execute()
-    if (whitelist.length > 0) {
+
+    const skipWhitelistCheck = process.env.FEEDGEN_SUBSCRIBER_ONLY === 'false';
+    console.log("skip whitelist ckeck:", skipWhitelistCheck)
+    if (skipWhitelistCheck || whitelist.length > 0) {
       const body = await algo(ctx, params, requesterDid)
       return {
         encoding: 'application/json',
