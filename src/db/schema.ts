@@ -21,6 +21,9 @@ export type Post = {
   linkTitle: string
   linkDescription: string
   priority?: number
+  likes_count?: number
+  repost_count?: number
+  // comments_count?: number
 }
 
 export type Engagement = {

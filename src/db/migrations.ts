@@ -24,6 +24,9 @@ migrations['001'] = {
       .addColumn('linkTitle', 'varchar', (col) => col.notNull())
       .addColumn('linkDescription', 'varchar', (col) => col.notNull())
       .addColumn('priority', 'integer')
+      .addColumn('likes_count', 'integer', (col) => col.defaultTo(0))
+      .addColumn('repost_count', 'integer', (col) => col.defaultTo(0))
+      // .addColumn('comments_count', 'integer', (col) => col.defaultTo(0))
       .execute()
     await db.schema
       .createTable('engagement')
@@ -64,6 +67,12 @@ migrations['001'] = {
       .createIndex('follows_subject_index')
       .on('follows')
       .column('subject')
+      .execute()
+    
+    await db.schema
+      .createIndex('engagement_subject_uri_index')
+      .on('engagement')
+      .column('subjectUri')
       .execute()
 
     await db.schema
