@@ -12,8 +12,10 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   const publisherDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   const limit = Math.floor(params.limit / 2); // 50% from each source
   const requesterFollows = await getFollows(requesterDid, ctx.db)
-  // don't consider posts older than 24 hours
-  const timeLimit = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // don't consider posts older than time limit hours
+  const engagementTimeHours = process.env.ENGAGEMENT_TIME_HOURS ? 
+    parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
+  const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
 
   // Parse cursor if provided
   let cursorTimestamp: string | undefined;
