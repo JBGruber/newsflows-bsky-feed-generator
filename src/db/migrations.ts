@@ -26,7 +26,7 @@ migrations['001'] = {
       .addColumn('priority', 'integer')
       .addColumn('likes_count', 'integer', (col) => col.defaultTo(0))
       .addColumn('repost_count', 'integer', (col) => col.defaultTo(0))
-      // .addColumn('comments_count', 'integer', (col) => col.defaultTo(0))
+      .addColumn('comments_count', 'integer', (col) => col.defaultTo(0))
       .execute()
     await db.schema
       .createTable('engagement')

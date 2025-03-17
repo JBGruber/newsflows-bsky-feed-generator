@@ -23,7 +23,7 @@ export type Post = {
   priority?: number
   likes_count?: number
   repost_count?: number
-  // comments_count?: number
+  comments_count?: number
 }
 
 export type Engagement = {

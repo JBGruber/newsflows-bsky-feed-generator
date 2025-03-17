@@ -10,16 +10,15 @@ let activeTimers: NodeJS.Timeout[] = [];
  */
 export async function updateAllSubscriberFollows(db: Database, updateAll: boolean = false): Promise<void> {
   try {
-    console.log('Starting scheduled update of subscriber follows...');
-    
+
     // Get all subscribers from the database
     const subscribers = await db
       .selectFrom('subscriber')
       .select(['did'])
       .execute();
-    
-    console.log(`Starting scheduled update of follows for ${subscribers.length} subscribers`);
-    
+
+    console.log(`[${new Date().toISOString()}] - Starting scheduled update of follows for ${subscribers.length} subscribers`);
+
     for (const subscriber of subscribers) {
       try {
         await getFollowsApi(subscriber.did, db, updateAll);
@@ -27,32 +26,32 @@ export async function updateAllSubscriberFollows(db: Database, updateAll: boolea
         console.error(`Error updating follows for ${subscriber.did}:`, error);
       }
     }
-    
+
   } catch (error) {
     console.error('Error in scheduled follows update:', error);
   }
 }
 
 export function setupFollowsUpdateScheduler(
-  db: Database, 
+  db: Database,
   intervalMs: number = 60 * 60 * 1000, // Default: 1 hour
   runImmediately: boolean = true,
   updateAll: boolean = false
 ): NodeJS.Timeout {
-  
+
   if (runImmediately) {
     updateAllSubscriberFollows(db).catch(err => {
       console.error('Error in initial follows update:', err);
     });
   }
-  
+
   // Set up recurring interval
   const timerId = setInterval(() => {
     updateAllSubscriberFollows(db, updateAll).catch(err => {
       console.error('Error in scheduled follows update:', err);
     });
   }, intervalMs);
-  
+
   // Add to active timers list
   activeTimers.push(timerId);
   return timerId;
@@ -94,14 +93,15 @@ export async function updateEngagement(db: Database): Promise<void> {
       .execute();
 
     const postUris = recentPosts.map(post => post.uri);
-    
+
     if (postUris.length === 0) {
       console.log('No recent posts to update.');
       return;
     }
-    
+
     console.log(`Found ${postUris.length} posts to update engagement stats for.`);
 
+    // Count likes for each post
     // Count likes for each post
     const likeCountsResult = await db
       .selectFrom('engagement')
@@ -109,7 +109,7 @@ export async function updateEngagement(db: Database): Promise<void> {
       .where('engagement.type', '=', 2) // Type 2 is for likes
       .select([
         'engagement.subjectUri as uri',
-        db.fn.count('engagement.uri').as('count')
+        db.fn.count<number>('uri').as('count')
       ])
       .groupBy('engagement.subjectUri')
       .execute();
@@ -121,18 +121,34 @@ export async function updateEngagement(db: Database): Promise<void> {
       .where('engagement.type', '=', 1) // Type 1 is for reposts
       .select([
         'engagement.subjectUri as uri',
-        db.fn.count('engagement.uri').as('count')
+        db.fn.count<number>('uri').as('count')
       ])
       .groupBy('engagement.subjectUri')
+      .execute();
+
+    // Count comments for each post (comments are posts with rootUri pointing to the original post)
+    const commentCountsResult = await db
+      .selectFrom('post as comments')
+      .where('comments.rootUri', 'in', postUris)
+      .where('comments.rootUri', '!=', '') // Ensure it's a real comment
+      .select([
+        'comments.rootUri as uri',
+        db.fn.count<number>('uri').as('count')
+      ])
+      .groupBy('comments.rootUri')
       .execute();
 
     // Create maps for quick lookups
     const likesMap = new Map(
       likeCountsResult.map(result => [result.uri, Number(result.count)])
     );
-    
+
     const repostsMap = new Map(
       repostCountsResult.map(result => [result.uri, Number(result.count)])
+    );
+
+    const commentsMap = new Map(
+      commentCountsResult.map(result => [result.uri, Number(result.count)])
     );
 
     // Update each post with the correct counts
@@ -141,17 +157,19 @@ export async function updateEngagement(db: Database): Promise<void> {
       const updatePromises = postUris.map(uri => {
         const likesCount = likesMap.get(uri) || 0;
         const repostsCount = repostsMap.get(uri) || 0;
-        
+        const commentsCount = commentsMap.get(uri) || 0;
+
         return trx
           .updateTable('post')
           .set({
             likes_count: likesCount,
-            repost_count: repostsCount
+            repost_count: repostsCount,
+            comments_count: commentsCount
           })
           .where('uri', '=', uri)
           .execute();
       });
-      
+
       // Process in chunks of 100 to avoid overwhelming the database
       const batchSize = 100;
       for (let i = 0; i < updatePromises.length; i += batchSize) {
@@ -169,25 +187,25 @@ export async function updateEngagement(db: Database): Promise<void> {
 
 
 export function setupEngagmentUpdateScheduler(
-  db: Database, 
+  db: Database,
   intervalMs: number = 60 * 60 * 1000, // Default: 1 hour
   runImmediately: boolean = true,
   updateAll: boolean = false
 ): NodeJS.Timeout {
-  
+
   if (runImmediately) {
     updateEngagement(db).catch(err => {
       console.error('Error in initial follows update:', err);
     });
   }
-  
+
   // Set up recurring interval
   const timerId = setInterval(() => {
     updateEngagement(db).catch(err => {
       console.error('Error in scheduled follows update:', err);
     });
   }, intervalMs);
-  
+
   // Add to active timers list
   activeTimers.push(timerId);
   return timerId;
