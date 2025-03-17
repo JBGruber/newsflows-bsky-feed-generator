@@ -2,6 +2,7 @@ import { QueryParams } from '../lexicon/types/app/bsky/feed/getFeedSkeleton'
 import { AppContext } from '../config'
 import { getFollows } from './queries'
 import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'
+import { sql } from 'kysely';
 
 // max 15 chars
 export const shortname = 'newsflow-nl-3'
@@ -21,30 +22,20 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   }
 
   // Build publisher posts query
-  const publisherPostsQuery = ctx.db
+  let publisherPostsQuery = ctx.db
     .selectFrom('post')
-    .leftJoin('engagement', 'post.uri', 'engagement.subjectUri')
-    .select([
-      'post.uri',
-      'post.indexedAt',
-      'post.author'
-    ])
-    .select((eb) => [
-      // Count engagements
-      eb.fn.count('engagement.subjectUri').as('engagementCount')
-    ])
-    .where('post.author', '=', publisherDid)
+    .selectAll()
+    .where('author', '=', publisherDid)
     .where('post.indexedAt', '>=', timeLimit)
-    .groupBy([
-      'post.uri',
-      'post.indexedAt',
-      'post.author'
-    ])
-    // Order by engagement count
-    .orderBy('engagementCount', 'desc')
-    // Then by recent posts
-    .orderBy('post.indexedAt', 'desc')
+    // Order by sum of likes_count and repost_count, then by recency
+    .orderBy(
+      sql`COALESCE((COALESCE(likes_count, 0) + COALESCE(repost_count, 0) * 1.5 + COALESCE(comments_count, 0)), 0)`,
+      'desc'
+    )
+    .orderBy('indexedAt', 'desc')
+    .orderBy('cid', 'desc')
     .limit(limit);
+
 
   // Apply cursor if provided
   if (cursorTimestamp) {
@@ -54,39 +45,22 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   // Build other posts query (from user's follows)
   const otherPostsQuery = ctx.db
     .selectFrom('post')
-    .leftJoin('engagement', 'post.uri', 'engagement.subjectUri')
-    .select([
-      'post.uri',
-      'post.indexedAt',
-      'post.author'
-    ])
-    .select((eb) => [
-      eb.fn.count('engagement.subjectUri').as('engagementCount')
-    ])
-    .where('post.author', '!=', publisherDid)
+    .selectAll()
+    .where('author', '!=', publisherDid)
     .where('post.indexedAt', '>=', timeLimit)
-    .groupBy([
-      'post.uri',
-      'post.indexedAt',
-      'post.author'
-    ])
-    // Order by engagement count
-    .orderBy('engagementCount', 'desc')
-    // Then by recent posts
-    .orderBy('post.indexedAt', 'desc')
+    .where((eb) => eb('author', 'in', requesterFollows))
+    // Order by sum of likes_count and repost_count, then by recency
+    .orderBy(
+      sql`COALESCE((COALESCE(likes_count, 0) + COALESCE(repost_count, 0) * 1.5 + COALESCE(comments_count, 0)), 0)`,
+      'desc'
+    )
+    .orderBy('indexedAt', 'desc')
+    .orderBy('cid', 'desc')
     .limit(limit);
 
   // Apply cursor if provided
   if (cursorTimestamp) {
     otherPostsQuery.where('post.indexedAt', '<', cursorTimestamp);
-  }
-
-  // Add follows filter only if there are follows
-  if (requesterFollows.length > 0) {
-    otherPostsQuery.where('post.author', 'in', requesterFollows);
-  } else {
-    // If user follows nobody, don't return any "other" posts
-    otherPostsQuery.where('post.author', '=', 'no-follows-placeholder');
   }
 
   // Execute both queries in parallel
@@ -143,6 +117,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
           post_uri: post.post
         }));
 
+        // Use batch insert for better performance
         await ctx.db
           .insertInto('request_posts')
           .values(postValues)
