@@ -3,6 +3,7 @@ import { AppContext } from '../config'
 import { getFollows } from './queries'
 import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'
 import { sql } from 'kysely';
+
 // max 15 chars
 export const shortname = 'newsflow-nl-4'
 
@@ -12,14 +13,14 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   const limit = Math.floor(params.limit / 2); // 50% from each source
   const requesterFollows = await getFollows(requesterDid, ctx.db)
   // don't consider posts older than time limit hours
-  const engagementTimeHours = process.env.ENGAGEMENT_TIME_HOURS ? 
+  const engagementTimeHours = process.env.ENGAGEMENT_TIME_HOURS ?
     parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
   const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
 
   // Parse cursor if provided
-  let cursorTimestamp: string | undefined;
+  let cursorOffset = 0;
   if (params.cursor) {
-    cursorTimestamp = new Date(parseInt(params.cursor, 10)).toISOString();
+    cursorOffset = parseInt(params.cursor, 10);
   }
 
   // Build publisher posts query
@@ -38,13 +39,8 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   )
   .orderBy('indexedAt', 'desc')
   .orderBy('cid', 'desc')
+  .offset(cursorOffset)
   .limit(limit);
-
-
-  // Apply cursor if provided
-  if (cursorTimestamp) {
-    publisherPostsQuery.where('post.indexedAt', '<', cursorTimestamp);
-  }
 
   // Build other posts query (from user's follows)
   const otherPostsQuery = ctx.db
@@ -63,12 +59,8 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   )
   .orderBy('indexedAt', 'desc')
   .orderBy('cid', 'desc')
+  .offset(cursorOffset)
   .limit(limit);
-
-  // Apply cursor if provided
-  if (cursorTimestamp) {
-    otherPostsQuery.where('post.indexedAt', '<', cursorTimestamp);
-  }
 
   // Execute both queries in parallel
   const [publisherPosts, otherPosts] = await Promise.all([
@@ -90,17 +82,12 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     }
   }
 
-  // Calculate cursor based on the oldest post included
+  // Calculate cursor based on the offset for the next page
   let cursor: string | undefined;
-  const allPosts = [...publisherPosts, ...otherPosts];
-  if (allPosts.length > 0) {
-    const sortedPosts = [...allPosts].sort((a, b) =>
-      new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
-    );
-    const lastPost = sortedPosts.at(-1);
-    if (lastPost) {
-      cursor = new Date(lastPost.indexedAt).getTime().toString(10);
-    }
+  const totalPostsReturned = publisherPosts.length + otherPosts.length;
+  if (totalPostsReturned > 0) {
+    // Set the next offset to current offset + number of posts returned
+    cursor = (cursorOffset + totalPostsReturned).toString();
   }
 
   // Log request to database (non-blocking)

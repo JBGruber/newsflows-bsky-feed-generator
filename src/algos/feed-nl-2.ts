@@ -16,6 +16,12 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
   const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
 
+  // Parse cursor if provided
+  let cursorOffset = 0;
+  if (params.cursor) {
+    cursorOffset = parseInt(params.cursor, 10);
+  }
+
   // Fetch posts from our News account
   let publisherPostsQuery = ctx.db
     .selectFrom('post')
@@ -28,12 +34,8 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     )
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
+    .offset(cursorOffset)
     .limit(limit);
-
-  if (params.cursor) {
-    const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    publisherPostsQuery = publisherPostsQuery.where('post.indexedAt', '<', timeStr);
-  }
 
   const publisherPosts = await publisherPostsQuery.execute();
 
@@ -51,12 +53,8 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     // Then by most recent
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
+    .offset(cursorOffset)
     .limit(limit);
-
-  if (params.cursor) {
-    const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    otherPostsQuery = otherPostsQuery.where('post.indexedAt', '<', timeStr);
-  }
 
   const otherPosts = await otherPostsQuery.execute();
 
@@ -74,13 +72,12 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
 
   console.log(`[${new Date().toISOString()}] - Feed ${shortname} retrieved ${publisherPosts.length} publisher posts and ${otherPosts.length} other posts`);
   
+  // Calculate cursor based on the offset for the next page
   let cursor: string | undefined;
-  const lastPost = [...publisherPosts, ...otherPosts].sort((a, b) =>
-    new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
-  ).at(-1);
-
-  if (lastPost) {
-    cursor = new Date(lastPost.indexedAt).getTime().toString(10);
+  const totalPostsReturned = publisherPosts.length + otherPosts.length;
+  if (totalPostsReturned > 0) {
+    // Set the next offset to current offset + number of posts returned
+    cursor = (cursorOffset + totalPostsReturned).toString();
   }
 
   // log request to database (non-blocking)
