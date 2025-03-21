@@ -11,7 +11,6 @@ export type FeedGenerator = (ctx: AppContext, params: QueryParams, requesterDid:
 // Type for the query builder functions
 export type QueryBuilder = (
   db: Kysely<DatabaseSchema>,
-  publisherDid: string,
   timeLimit: string,
   requesterFollows: string[],
   cursorOffset: number,
@@ -38,7 +37,6 @@ export async function buildFeed({
   buildFollowsQuery
 }: FeedGeneratorOptions) {
   console.log(`[${new Date().toISOString()}] - Feed ${shortname} requested by ${requesterDid}`);
-  const publisherDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   const limit = Math.floor(params.limit / 2); // 50% from each source
   const requesterFollows = await getFollows(requesterDid, ctx.db)
   
@@ -56,7 +54,6 @@ export async function buildFeed({
   // Build the queries using the provided builder functions
   const publisherPostsQuery = buildPublisherQuery(
     ctx.db,
-    publisherDid,
     timeLimit,
     requesterFollows,
     cursorOffset,
@@ -65,7 +62,6 @@ export async function buildFeed({
 
   const otherPostsQuery = buildFollowsQuery(
     ctx.db,
-    publisherDid,
     timeLimit,
     requesterFollows,
     cursorOffset,
@@ -141,6 +137,6 @@ export async function buildFeed({
 // Helper function to get follows
 async function getFollows(actor: string, db: any): Promise<string[]> {
   // Import the function dynamically to avoid circular imports
-  const { getFollows } = await import('./queries');
+  const { getFollows } = await import('../algos/queries');
   return getFollows(actor, db);
 }

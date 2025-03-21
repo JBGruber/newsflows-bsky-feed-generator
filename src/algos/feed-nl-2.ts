@@ -22,12 +22,12 @@ export const handler: FeedGenerator = async (ctx: AppContext, params: QueryParam
 // Publisher posts query builder - with priority
 function buildPublisherPostsQuery(
   db: Kysely<DatabaseSchema>,
-  publisherDid: string,
   timeLimit: string,
   requesterFollows: string[],
   cursorOffset: number,
   limit: number
 ) {
+  const publisherDid = process.env.NEWSBOT_NL_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   return db
     .selectFrom('post')
     .selectAll()
@@ -46,12 +46,12 @@ function buildPublisherPostsQuery(
 // Follows posts query builder - with priority
 function buildFollowsPostsQuery(
   db: Kysely<DatabaseSchema>,
-  publisherDid: string, 
   timeLimit: string,
   requesterFollows: string[],
   cursorOffset: number,
   limit: number
 ) {
+  const publisherDid = process.env.NEWSBOT_NL_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   return db
     .selectFrom('post')
     .selectAll()
