@@ -1,13 +1,14 @@
 import { QueryParams } from '../lexicon/types/app/bsky/feed/getFeedSkeleton'
 import { AppContext } from '../config'
 import { getFollows } from './queries'
-import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'  // Import the correct type
+import { SkeletonFeedPost } from '../lexicon/types/app/bsky/feed/defs'
+import { sql } from 'kysely';
 
 // max 15 chars
 export const shortname = 'newsflow-nl-1'
 
 export const handler = async (ctx: AppContext, params: QueryParams, requesterDid: string) => {
-  console.log("Feed", shortname, "requested by", requesterDid, "at", new Date().toISOString())
+  console.log(`[${new Date().toISOString()}] - Feed ${shortname} requested by ${requesterDid}`);
   const publisherDid = process.env.FEEDGEN_PUBLISHER_DID || 'did:plc:toz4no26o2x4vsbum7cp4bxp';
   const limit = Math.floor(params.limit / 2); // 50% from each source
   const requesterFollows = await getFollows(requesterDid, ctx.db)
@@ -16,7 +17,13 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
   const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
 
-  // Fetch posts from our News account
+  // Parse cursor if provided
+  let cursorOffset = 0;
+  if (params.cursor) {
+    cursorOffset = parseInt(params.cursor, 10);
+  }
+
+  // Build publisher posts query
   let publisherPostsQuery = ctx.db
     .selectFrom('post')
     .selectAll()
@@ -24,17 +31,11 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     .where('post.indexedAt', '>=', timeLimit)
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
+    .offset(cursorOffset)
     .limit(limit);
 
-  if (params.cursor) {
-    const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    publisherPostsQuery = publisherPostsQuery.where('post.indexedAt', '<', timeStr);
-  }
-
-  const publisherPosts = await publisherPostsQuery.execute();
-
-  // Fetch posts by follows
-  let otherPostsQuery = ctx.db
+  // Build other posts query (from user's follows)
+  const otherPostsQuery = ctx.db
     .selectFrom('post')
     .selectAll()
     .where('author', '!=', publisherDid)
@@ -42,14 +43,16 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     .where((eb) => eb('author', 'in', requesterFollows))
     .orderBy('indexedAt', 'desc')
     .orderBy('cid', 'desc')
+    .offset(cursorOffset)
     .limit(limit);
 
-  if (params.cursor) {
-    const timeStr = new Date(parseInt(params.cursor, 10)).toISOString();
-    otherPostsQuery = otherPostsQuery.where('post.indexedAt', '<', timeStr);
-  }
+  // Execute both queries in parallel
+  const [publisherPosts, otherPosts] = await Promise.all([
+    publisherPostsQuery.execute(),
+    otherPostsQuery.execute()
+  ]);
 
-  const otherPosts = await otherPostsQuery.execute();
+  console.log(`[${new Date().toISOString()}] - Feed ${shortname} retrieved ${publisherPosts.length} publisher posts and ${otherPosts.length} other posts`);
 
   // Merge both post lists in an alternating pattern
   const feed: SkeletonFeedPost[] = [];
@@ -63,18 +66,15 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
     }
   }
 
-  console.log(`[${new Date().toISOString()}] - Feed ${shortname} retrieved ${publisherPosts.length} publisher posts and ${otherPosts.length} other posts`);
-
+  // Calculate cursor based on the offset for the next page
   let cursor: string | undefined;
-  const lastPost = [...publisherPosts, ...otherPosts].sort((a, b) =>
-    new Date(b.indexedAt).getTime() - new Date(a.indexedAt).getTime()
-  ).at(-1);
-
-  if (lastPost) {
-    cursor = new Date(lastPost.indexedAt).getTime().toString(10);
+  const totalPostsReturned = publisherPosts.length + otherPosts.length;
+  if (totalPostsReturned > 0) {
+    // Set the next offset to current offset + number of posts returned
+    cursor = (cursorOffset + limit * 2).toString();
   }
 
-  // log request to database (non-blocking)
+  // Log request to database (non-blocking)
   setTimeout(async () => {
     try {
       const timestamp = new Date().toISOString();
@@ -94,12 +94,13 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
           request_id: requestInsertResult.id as number,
           post_uri: post.post
         }));
+
+        // Use batch insert for better performance
         await ctx.db
           .insertInto('request_posts')
           .values(postValues)
           .execute();
       }
-
     } catch (error) {
       console.error('Error logging request:', error);
     }

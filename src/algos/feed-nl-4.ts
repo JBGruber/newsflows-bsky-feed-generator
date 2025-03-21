@@ -87,7 +87,7 @@ export const handler = async (ctx: AppContext, params: QueryParams, requesterDid
   const totalPostsReturned = publisherPosts.length + otherPosts.length;
   if (totalPostsReturned > 0) {
     // Set the next offset to current offset + number of posts returned
-    cursor = (cursorOffset + totalPostsReturned).toString();
+    cursor = (cursorOffset + limit * 2).toString();
   }
 
   // Log request to database (non-blocking)
