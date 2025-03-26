@@ -33,6 +33,7 @@ services:
       FEEDGEN_DB_USER: ${FEEDGEN_DB_USER:-feedgen}
       FEEDGEN_DB_PASSWORD: ${FEEDGEN_DB_PASSWORD:-feedgen}
       FEEDGEN_DB_BASE: ${FEEDGEN_DB_BASE:-feedgen-db}
+      ENGAGEMENT_TIME_HOURS: ${ENGAGEMENT_TIME_HOURS:-72}
     depends_on:
       - feedgen-db
 
