@@ -141,3 +141,4 @@ db_work.sqlite
 db.sqlite-journal
 subscribers.csv
 passwords.csv
+lab.r
