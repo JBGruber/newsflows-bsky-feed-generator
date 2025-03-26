@@ -6,6 +6,7 @@ import { createServer } from './lexicon'
 import feedGeneration from './methods/feed-generation'
 import describeGenerator from './methods/describe-generator'
 import registerSubscribeEndpoint from './methods/subscribe'
+import registerPrioritizeEndpoint from './methods/prioritize-posts'
 import { importSubscribersFromCSV } from './util/import-subscribers'
 import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
@@ -63,8 +64,9 @@ export class FeedGenerator {
     app.use(server.xrpc.router)
     app.use(wellKnown(ctx))
 
-    // Add the new subscribe endpoint
+    // register api endpoints
     registerSubscribeEndpoint(server, ctx)
+    registerPrioritizeEndpoint(server, ctx);
 
     return new FeedGenerator(app, db, firehose, cfg)
   }
