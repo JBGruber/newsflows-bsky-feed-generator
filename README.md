@@ -47,5 +47,5 @@ docker-compose down && \
 # Upload to dockerhub (for Contributors)
 
 ``` bash
-docker image push --all-tags jbgruber/bsky-feedgen
+docker image push jbgruber/bsky-feedgen:latest
 ```

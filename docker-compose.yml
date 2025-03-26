@@ -6,9 +6,9 @@ services:
       dockerfile: Dockerfile
     container_name: feedgen
     hostname: feedgen
-    # restart: unless-stopped
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3020:3020"
     logging:
       options:
         max-size: 10m
@@ -17,10 +17,14 @@ services:
       - ./subscribers.csv:/app/subscribers.csv
     environment:
       NODE_ENV: production
-      FEEDGEN_PORT: 3000
+      FEEDGEN_PORT: 3020
       FEEDGEN_SUBSCRIPTION_ENDPOINT: ${FEEDGEN_SUBSCRIPTION_ENDPOINT:-wss://bsky.network}
       FEEDGEN_HOSTNAME: ${FEEDGEN_HOSTNAME:-example.com}
       FEEDGEN_PUBLISHER_DID: ${FEEDGEN_PUBLISHER_DID}
+      NEWSBOT_CZ_DID: ${NEWSBOT_CZ_DID}
+      NEWSBOT_FR_DID: ${NEWSBOT_FR_DID}
+      NEWSBOT_IR_DID: ${NEWSBOT_IR_DID}
+      NEWSBOT_NL_DID: ${NEWSBOT_NL_DID}
       FEEDGEN_SQLITE_LOCATION: ${FEEDGEN_SQLITE_LOCATION:-/app/data/db.sqlite}
       FOLLOWS_UPDATE_INTERVAL_MS: ${FOLLOWS_UPDATE_INTERVAL_MS:-3600000}
       # Database connection details
@@ -38,7 +42,7 @@ services:
     hostname: feedgen-db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5434:5432"
     logging:
       options:
         max-size: 10m
@@ -48,7 +52,6 @@ services:
       POSTGRES_DB: ${FEEDGEN_DBBASE:-feedgen-db}
       POSTGRES_USER: ${FEEDGEN_DBUSER:-feedgen}
       POSTGRES_PASSWORD: ${FEEDGEN_DBPASSWORD:-feedgen}
-    # Add these settings for shared memory
     shm_size: 2gb
     ulimits:
       memlock:
@@ -69,3 +72,4 @@ volumes:
   data:
   extensions:
   db:
+  
