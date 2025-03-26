@@ -60,7 +60,7 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
         .execute()
 
       // Trigger background follows update without blocking the response
-      const { triggerFollowsUpdateForSubscriber } = require('../util/scheduled-follows-updater');
+      const { triggerFollowsUpdateForSubscriber } = require('../util/scheduled-updater');
       triggerFollowsUpdateForSubscriber(ctx.db, resolvedDid as string);
 
       // Return the resolved identifiers
