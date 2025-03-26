@@ -27,7 +27,7 @@ const run = async () => {
   })
   await server.start()
   console.log(
-    `🤖 running feed generator at http://${server.cfg.listenhost}:${server.cfg.port}`,
+    `[${new Date().toISOString()}] - 🤖 running feed generator at http://${server.cfg.listenhost}:${server.cfg.port}`,
   )
 }
 

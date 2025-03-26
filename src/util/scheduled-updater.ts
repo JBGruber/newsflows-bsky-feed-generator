@@ -62,7 +62,7 @@ export function triggerFollowsUpdateForSubscriber(db: Database, did: string): vo
   // Run in the next event loop tick to avoid blocking
   setTimeout(async () => {
     try {
-      console.log(`Background update: fetching follows for new subscriber ${did}`);
+      console.log(`[${new Date().toISOString()}] - Background update: fetching follows for new subscriber ${did}`);
       await getFollowsApi(did, db);
     } catch (error) {
       console.error(`Error updating follows for ${did}:`, error);
@@ -82,7 +82,7 @@ export async function updateEngagement(db: Database): Promise<void> {
       .execute();
     const followsList = follows.map(f => f.follows);
 
-    console.log(`Found ${followsList.length} followed accounts to process.`);
+    console.log(`[${new Date().toISOString()}] - Found ${followsList.length} followed accounts to process.`);
 
     // Get recent posts from followed accounts
     const recentPosts = await db
@@ -95,11 +95,11 @@ export async function updateEngagement(db: Database): Promise<void> {
     const postUris = recentPosts.map(post => post.uri);
 
     if (postUris.length === 0) {
-      console.log('No recent posts to update.');
+      console.log(`[${new Date().toISOString()}] - No recent posts to update.`);
       return;
     }
 
-    console.log(`Found ${postUris.length} posts to update engagement stats for.`);
+    console.log(`[${new Date().toISOString()}] - Found ${postUris.length} posts to update engagement stats for.`);
 
     // Count likes for each post
     // Count likes for each post
@@ -214,7 +214,7 @@ export function setupEngagmentUpdateScheduler(
 
 // Stop all running schedulers
 export function stopAllSchedulers(): void {
-  console.log(`Stopping ${activeTimers.length} active schedulers`);
+  console.log(`[${new Date().toISOString()}] - Stopping ${activeTimers.length} active schedulers`);
   activeTimers.forEach(timerId => {
     clearInterval(timerId);
   });

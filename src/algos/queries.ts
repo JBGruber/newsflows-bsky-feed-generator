@@ -74,7 +74,7 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
             const data = await response.json() as FollowsResponse;
 
             if (!data.follows || !Array.isArray(data.follows)) {
-                console.warn(`Unexpected response format for ${actor}:`, data);
+                console.warn(`[${new Date().toISOString()}] - Unexpected response format for ${actor}:`, data);
                 break;
             }
 
@@ -97,18 +97,18 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
             retryCount = 0; // Reset retry count on success
 
         } catch (error) {
-            console.error(`Error fetching follows for ${actor}:`, error);
+            console.error(`[${new Date().toISOString()}] - Error fetching follows for ${actor}:`, error);
 
             // Implement retry logic
             retryCount++;
             if (retryCount <= maxRetries) {
-                console.warn(`Retry ${retryCount}/${maxRetries} after delay...`, true);
+                console.warn(`[${new Date().toISOString()}] - Retry ${retryCount}/${maxRetries} after delay...`, true);
                 await delay(retryDelay * retryCount); // Exponential backoff
                 continue; // Retry the current cursor
             }
 
             // If we've exceeded retries, break the loop and work with what we have
-            console.warn(`Maximum retries exceeded for ${actor}, proceeding with ${allFollows.length} follows`);
+            console.warn(`[${new Date().toISOString()}] - Maximum retries exceeded for ${actor}, proceeding with ${allFollows.length} follows`);
             break;
         }
     } while (currentCursor && !allExistInDb);
@@ -120,12 +120,12 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
                 .values(allFollows)
                 .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
                 .execute();
-            console.log(`Fetched ${allFollows.length} new follows for ${actor}`);
+            console.log(`[${new Date().toISOString()}] - Fetched ${allFollows.length} new follows for ${actor}`);
         } catch (dbError) {
-            console.error(`Database error while storing follows for ${actor}:`, dbError);
+            console.error(`[${new Date().toISOString()}] - Database error while storing follows for ${actor}:`, dbError);
         }
     } else {
-        console.log(`Follows for ${actor} were already complete`);
+        console.log(`[${new Date().toISOString()}] - Follows for ${actor} were already complete`);
     }
 
     return allFollows.map((entry) => entry.follows);

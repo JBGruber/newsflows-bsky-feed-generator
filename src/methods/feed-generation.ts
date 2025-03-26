@@ -45,7 +45,7 @@ export default function (server: Server, ctx: AppContext) {
         body: body,
       }
     } else {
-      console.log("not on whitelist");
+      console.log(`[${new Date().toISOString()}] - request denied (not on whitelist)`);
       return {
         encoding: 'application/json',
         body: { "feed": [] },

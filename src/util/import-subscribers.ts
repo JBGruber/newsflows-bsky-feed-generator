@@ -26,7 +26,7 @@ export async function importSubscribersFromCSV(
 
     // Check if file exists
     if (!fs.existsSync(csvPath)) {
-        console.log(`Subscribers CSV not found at ${csvPath}. Skipping import.`);
+        console.log(`[${new Date().toISOString()}] - Subscribers CSV not found at ${csvPath}. Skipping import.`);
         return;
     }
 
@@ -49,7 +49,7 @@ export async function importSubscribersFromCSV(
     // Validate CSV structure
     const data = parseResult.data as Array<{ handle?: string, did?: string }>;
     if (data.length === 0) {
-        console.log('No subscribers found in subscribers.csv.');
+        console.log(`[${new Date().toISOString()}] - No subscribers found in subscribers.csv.`);
         return;
     }
 
@@ -71,7 +71,7 @@ export async function importSubscribersFromCSV(
                 const resolveResult = await agent.resolveHandle({ handle });
                 did = resolveResult.data.did;
             } catch (err) {
-                console.warn(`Could not resolve DID for handle: ${handle}`);
+                console.warn(`[${new Date().toISOString()}] - Could not resolve DID for handle: ${handle}`);
                 continue;
             }
         }
@@ -82,7 +82,7 @@ export async function importSubscribersFromCSV(
                 const profileResult = await agent.getProfile({ actor: did });
                 handle = profileResult.data.handle;
             } catch (err) {
-                console.warn(`Could not resolve handle for DID: ${did}`);
+                console.warn(`[${new Date().toISOString()}] - Could not resolve handle for DID: ${did}`);
                 continue;
             }
         }
@@ -104,7 +104,7 @@ export async function importSubscribersFromCSV(
                 }
             });
 
-            console.log(`Imported ${subscribersToInsert.length} subscribers`);
+            console.log(`[${new Date().toISOString()}] - Imported ${subscribersToInsert.length} subscribers`);
         } catch (err) {
             console.error('Error importing subscribers:', err);
         }
