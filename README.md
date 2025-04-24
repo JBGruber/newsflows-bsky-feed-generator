@@ -26,6 +26,8 @@ yarn publishFeed
 
 Subscription endpoint: <http://localhost:3000/api/subscribe?handle=news-flows-nl.bsky.social>
 
+Prioritize endpoint: <http://localhost:3000/api/prioritize/>
+
 
 ## Build Image
 
