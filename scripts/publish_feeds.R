@@ -1,4 +1,3 @@
-# publishing feeds via the ts script was annoying since we have more than one
 library(atrrr)
 accounts <- c(
   "news-flows-nl.rds",
@@ -7,15 +6,12 @@ accounts <- c(
   "news-flows-cz.rds"
 )
 
-# NL feeds
-## load token
 account <- accounts[1]
 tok <- file.path(tools::R_user_dir("atrrr", "cache"), account) |>
   atrrr:::read_token()
 repo <- tok$did
 message(tok$handle)
 
-## publish feed 1-3
 for (i in 1:3) {
   params <- list(
     repo = repo,
@@ -44,7 +40,6 @@ for (i in 1:3) {
   message(paste("Feed", i, out$validationStatus))
 }
 
-# IR feeds
 account <- accounts[2]
 tok <- file.path(tools::R_user_dir("atrrr", "cache"), account) |>
   atrrr:::read_token()
@@ -80,7 +75,6 @@ for (i in 1:3) {
 }
 
 
-# FR feeds
 account <- accounts[3]
 tok <- file.path(tools::R_user_dir("atrrr", "cache"), account) |>
   atrrr:::read_token()
@@ -115,8 +109,6 @@ for (i in 1:3) {
   message(paste("Feed", i, out$validationStatus))
 }
 
-
-# CZ feeds
 account <- accounts[4]
 tok <- file.path(tools::R_user_dir("atrrr", "cache"), account) |>
   atrrr:::read_token()

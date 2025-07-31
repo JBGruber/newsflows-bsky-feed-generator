@@ -134,12 +134,8 @@ dist
 *.iml
 
 # JBG added
-db.sqlite
-lab.R
-example_posts/
-db_work.sqlite
-db.sqlite-journal
 subscribers.csv
 passwords.csv
-lab.r
+lab.R
 nl.csv
+docker-compose-deploy.yml

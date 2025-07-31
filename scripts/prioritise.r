@@ -8,12 +8,15 @@ resp <- paste0("https://", Sys.getenv("FEEDGEN_HOSTNAME")) |>
   req_url_query(
     keywords = "Kyiv,Kiev",
     test = "false",
-    priority = 1,
+    priority = 10,
     maxdays = 1
   ) |>
   req_headers("api-key" = Sys.getenv("PRIORITIZE_API_KEY")) |>
   req_error(body = \(resp) {
-    resp_err <<- resp
-    resp_body_json(resp)$error
+    switch(
+      resp_content_type(resp),
+      "text/html" = resp_body_html(resp) |> rvest::html_text2(),
+      "application/json" = resp_body_json(resp)$error
+    )
   }) |>
   req_perform()
