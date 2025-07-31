@@ -37,7 +37,7 @@ export async function buildFeed({
   buildFollowsQuery
 }: FeedGeneratorOptions) {
   console.log(`[${new Date().toISOString()}] - Feed ${shortname} requested by ${requesterDid}`);
-  const limit = Math.floor(params.limit / 2); // 50% from each source
+  const limit = Math.floor(params.limit / 3); // 1/3 from news + 2/3 other
   const requesterFollows = await getFollows(requesterDid, ctx.db)
   
   // don't consider posts older than time limit hours
@@ -65,7 +65,7 @@ export async function buildFeed({
     timeLimit,
     requesterFollows,
     cursorOffset,
-    limit
+    limit * 2
   );
 
   // Execute both queries in parallel
