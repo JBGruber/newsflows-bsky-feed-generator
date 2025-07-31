@@ -33,45 +33,68 @@ export default function registerPrioritizeEndpoint(server: Server, ctx: AppConte
       console.log(`[${new Date().toISOString()}] - Request to prioritize posts containing one of ${keywordsArray.length} keywords`);
 
       // Generate conditions for the SQL query
-      const rgx = keywordsArray.map(keyword =>
-        `${keyword}`
+      const rgxCondition = keywordsArray.map(keyword =>
+        `\\m(${keyword})\\M`
       ).join('|')
-      const rgxCondition = `\\m(${rgx})\\M`
 
-      let results
-      if (test === true || test === 'true') {
+      if (test === true || String(test).toLowerCase() === 'true') {
         // Test mode: just return the posts that would be prioritized
         const query = ctx.db
           .selectFrom('post')
           .selectAll()
           .where(sql<SqlBool>`(text ~* ${rgxCondition} OR "linkDescription" ~* ${rgxCondition})`)
           .where('createdAt', '>=', timeLimit)
-        results = await query
-          .execute();
-        console.log(`[${new Date().toISOString()}] - Prioritized ${results.length} posts`);
+        
+        const results = await query.execute();
+        console.log(`[${new Date().toISOString()}] - Found ${results.length} posts that would be prioritized`);
+        
         const compiledQuery = query.compile();
         return res.json({
-          mode: 'update',
+          mode: 'test',
           query: compiledQuery.sql,
           parameters: compiledQuery.parameters,
+          postsFound: results.length,
           uris: results.map(row => row.uri)
         })
       } else {
-        // Actual update mode
-        const query = ctx.db
-          .updateTable('post')
-          .set('priority', priorityNumber)
+        // Actual update mode: First get the posts that will be updated, then update them using their URIs
+        const selectQuery = ctx.db
+          .selectFrom('post')
+          .select(['uri'])
           .where(sql<SqlBool>`(text ~* ${rgxCondition} OR "linkDescription" ~* ${rgxCondition})`)
           .where('createdAt', '>=', timeLimit)
-        results = await query
-          .execute();
-        console.log(`[${new Date().toISOString()}] - Set ${results.length} posts to priority ${priorityNumber}`);
-        const compiledQuery = query.compile();
+        
+        const postsToUpdate = await selectQuery.execute();
+        
+        if (postsToUpdate.length === 0) {
+          console.log(`[${new Date().toISOString()}] - No posts found matching criteria`);
+          return res.json({
+            mode: 'update',
+            postsUpdated: 0,
+            uris: []
+          })
+        }
+
+        const urisToUpdate = postsToUpdate.map(row => row.uri);
+
+        // Now perform the update using the specific URIs
+        const updateQuery = ctx.db
+          .updateTable('post')
+          .set('priority', priorityNumber)
+          .where('uri', 'in', urisToUpdate)
+        
+        await updateQuery.execute();
+        const updatedCount = urisToUpdate.length; // We know exactly how many we're updating
+        
+        console.log(`[${new Date().toISOString()}] - Set ${updatedCount} posts to priority ${priorityNumber}`);
+        
+        const compiledQuery = updateQuery.compile();
         return res.json({
           mode: 'update',
           query: compiledQuery.sql,
           parameters: compiledQuery.parameters,
-          uris: results.map(row => row.uri)
+          postsUpdated: updatedCount,
+          uris: urisToUpdate
         })
       }
     } catch (error) {
@@ -107,45 +130,68 @@ export default function registerPrioritizeEndpoint(server: Server, ctx: AppConte
       console.log(`[${new Date().toISOString()}] - Request to prioritize posts containing one of ${keywordsArray.length} keywords`);
 
       // Generate conditions for the SQL query
-      const rgx = keywordsArray.map(keyword =>
-        `${keyword}`
+      const rgxCondition = keywordsArray.map(keyword =>
+        `\\m(${keyword})\\M`
       ).join('|')
-      const rgxCondition = `\\m(${rgx})\\M`
 
-      let results
-      if (test === true || test === 'true') {
+      if (test === true || String(test).toLowerCase() === 'true') {
         // Test mode: just return the posts that would be prioritized
         const query = ctx.db
           .selectFrom('post')
           .selectAll()
           .where(sql<SqlBool>`(text ~* ${rgxCondition} OR "linkDescription" ~* ${rgxCondition})`)
           .where('createdAt', '>=', timeLimit)
-        results = await query
-          .execute();
-        console.log(`[${new Date().toISOString()}] - Prioritized ${results.length} posts`);
+        
+        const results = await query.execute();
+        console.log(`[${new Date().toISOString()}] - Found ${results.length} posts that would be prioritized`);
+        
         const compiledQuery = query.compile();
         return res.json({
-          mode: 'update',
+          mode: 'test',
           query: compiledQuery.sql,
           parameters: compiledQuery.parameters,
+          postsFound: results.length,
           uris: results.map(row => row.uri)
         })
       } else {
-        // Actual update mode
-        const query = ctx.db
-          .updateTable('post')
-          .set('priority', priorityNumber)
+        // Actual update mode: First get the posts that will be updated, then update them using their URIs
+        const selectQuery = ctx.db
+          .selectFrom('post')
+          .select(['uri'])
           .where(sql<SqlBool>`(text ~* ${rgxCondition} OR "linkDescription" ~* ${rgxCondition})`)
           .where('createdAt', '>=', timeLimit)
-        results = await query
-          .execute();
-        console.log(`[${new Date().toISOString()}] - Set ${results.length} posts to priority ${priorityNumber}`);
-        const compiledQuery = query.compile();
+        
+        const postsToUpdate = await selectQuery.execute();
+        
+        if (postsToUpdate.length === 0) {
+          console.log(`[${new Date().toISOString()}] - No posts found matching criteria`);
+          return res.json({
+            mode: 'update',
+            postsUpdated: 0,
+            uris: []
+          })
+        }
+
+        const urisToUpdate = postsToUpdate.map(row => row.uri);
+
+        // Now perform the update using the specific URIs
+        const updateQuery = ctx.db
+          .updateTable('post')
+          .set('priority', priorityNumber)
+          .where('uri', 'in', urisToUpdate)
+        
+        const updateResult = await updateQuery.execute();
+        const updatedCount = updateResult.length; // Number of rows in the result array
+        
+        console.log(`[${new Date().toISOString()}] - Set ${updatedCount} posts to priority ${priorityNumber}`);
+        
+        const compiledQuery = updateQuery.compile();
         return res.json({
           mode: 'update',
           query: compiledQuery.sql,
           parameters: compiledQuery.parameters,
-          uris: results.map(row => row.uri)
+          postsUpdated: updatedCount,
+          uris: urisToUpdate
         })
       }
     } catch (error) {

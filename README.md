@@ -6,12 +6,12 @@ Start Feed generator (Terminal 1):
 yarn start
 ```
 
-Browser <http://localhost:3000/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:toz4no26o2x4vsbum7cp4bxp/app.bsky.feed.generator/newsflow-nl-1>
+Browser <http://localhost:3020/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:toz4no26o2x4vsbum7cp4bxp/app.bsky.feed.generator/newsflow-nl-1>
 
 Make https address (Terminal 2):
 
 ```bash
-ngrok http --url=vast-frank-mink.ngrok-free.app http://localhost:3000
+ngrok http --url=vast-frank-mink.ngrok-free.app http://localhost:3020
 ```
 
 Check `Forwarding` address and change to e.g.:
