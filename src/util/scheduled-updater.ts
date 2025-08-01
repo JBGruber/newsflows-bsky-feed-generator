@@ -1,5 +1,5 @@
 import { Database } from '../db';
-import { getFollowsApi } from '../algos/queries';
+import { getFollowsApi } from './queries';
 
 // Track active timers
 let activeTimers: NodeJS.Timeout[] = [];

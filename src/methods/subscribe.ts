@@ -1,12 +1,8 @@
 import express from 'express'
-import { AtpAgent } from '@atproto/api'
 import { Server } from '../lexicon'
 import { AppContext } from '../config'
+import { getProfile } from '../util/queries';
 
-// Create a global agent to be reused
-const agent = new AtpAgent({
-  service: 'https://bsky.social'
-});
 
 export default function registerSubscribeEndpoint(server: Server, ctx: AppContext) {
   server.xrpc.router.get('/api/subscribe', async (req, res) => {
@@ -20,33 +16,22 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
     }
 
     try {
-      // If only handle is provided, resolve the DID
       let resolvedHandle = handle as string | undefined;
       let resolvedDid = did as string | undefined;
-
-      if (!did) {
-        try {
-          const handleResolveResult = await agent.resolveHandle({ handle: resolvedHandle as string });
-          resolvedDid = handleResolveResult.data.did;
-        } catch (err) {
-          return res.status(404).json({
-            error: 'NotFound',
-            message: `Could not resolve DID for handle: ${resolvedHandle}`
-          });
-        }
-      }
-
-      // If only DID is provided, get the handle from profile
-      if (!handle) {
-        try {
-          const profileResult = await agent.getProfile({ actor: resolvedDid as string });
-          resolvedHandle = profileResult.data.handle;
-        } catch (err) {
-          return res.status(404).json({
-            error: 'NotFound',
-            message: `Could not resolve handle for DID: ${resolvedDid}`
-          });
-        }
+      let profileResult: any;
+      
+      try {
+        const actorToFetch = resolvedDid || resolvedHandle;
+        profileResult = await getProfile(actorToFetch as string);
+        
+        // Extract both handle and DID from the profile
+        resolvedHandle = profileResult.handle;
+        resolvedDid = profileResult.did;
+      } catch (err) {
+        return res.status(404).json({
+          error: 'NotFound',
+          message: `Could not get profile for: ${resolvedDid || resolvedHandle}`
+        });
       }
 
       // add new entry to db
@@ -59,6 +44,8 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
         .onConflict((oc) => oc.doNothing())
         .execute()
 
+      console.log(`[${new Date().toISOString()}] - ${resolvedHandle || resolvedDid} subscribed to feeds`);
+
       // Trigger background follows update without blocking the response
       const { triggerFollowsUpdateForSubscriber } = require('../util/scheduled-updater');
       triggerFollowsUpdateForSubscriber(ctx.db, resolvedDid as string);
@@ -67,7 +54,8 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
       return res.json({
         message: 'User succesfully subscribed to feeds',
         handle: resolvedHandle,
-        did: resolvedDid
+        did: resolvedDid,
+        avatar: profileResult.avatar
       });
     } catch (error) {
       console.error('Error in subscribe endpoint:', error);

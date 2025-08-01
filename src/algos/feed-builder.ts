@@ -137,6 +137,6 @@ export async function buildFeed({
 // Helper function to get follows
 async function getFollows(actor: string, db: any): Promise<string[]> {
   // Import the function dynamically to avoid circular imports
-  const { getFollows } = await import('../algos/queries');
+  const { getFollows } = await import('../util/queries');
   return getFollows(actor, db);
 }

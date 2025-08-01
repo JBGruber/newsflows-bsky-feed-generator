@@ -17,6 +17,7 @@ interface SimplifiedFollow {
     follows: string;
 }
 
+
 // Query local database to find follows; use API call if nothing is found
 export async function getFollows(actor: string, db): Promise<string[]> {
     const followsDid = await db
@@ -129,4 +130,75 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
     }
 
     return allFollows.map((entry) => entry.follows);
+}
+
+
+interface ProfileResponse {
+    did: string;
+    handle: string;
+    displayName?: string;
+    description?: string;
+    avatar?: string;
+    banner?: string;
+    followersCount?: number;
+    followsCount?: number;
+    postsCount?: number;
+    indexedAt?: string;
+    // Add other fields as needed from ProfileViewDetailed
+}
+
+
+// Query API for user profile
+export async function getProfile(actor: string): Promise<ProfileResponse | null> {
+    const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile';
+    let retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
+
+    // Function to delay execution
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    while (retryCount <= maxRetries) {
+        try {
+            const url = new URL(baseUrl);
+            url.searchParams.append('actor', actor);
+            
+            const response = await fetch(url.toString());
+
+            if (!response.ok) {
+                if (response.status === 400) {
+                    console.warn(`[${new Date().toISOString()}] - Profile not found for actor: ${actor}`);
+                    return null;
+                }
+                throw new Error(`HTTP error! status: ${response.status}, message: ${await response.text()}`);
+            }
+
+            const data = await response.json() as ProfileResponse;
+
+            if (!data.did || !data.handle) {
+                console.warn(`[${new Date().toISOString()}] - Invalid profile response for ${actor}:`, data);
+                return null;
+            }
+
+            console.log(`[${new Date().toISOString()}] - Successfully fetched profile for ${actor} (@${data.handle})`);
+            return data;
+
+        } catch (error) {
+            console.error(`[${new Date().toISOString()}] - Error fetching profile for ${actor}:`, error);
+
+            // Implement retry logic
+            retryCount++;
+            if (retryCount <= maxRetries) {
+                console.warn(`[${new Date().toISOString()}] - Retry ${retryCount}/${maxRetries} for profile ${actor} after delay...`);
+                await delay(retryDelay * retryCount); // Exponential backoff
+                continue; // Retry
+            }
+
+            // If we've exceeded retries, return null
+            console.warn(`[${new Date().toISOString()}] - Maximum retries exceeded for ${actor}, returning null`);
+            return null;
+        }
+    }
+
+    return null;
 }
