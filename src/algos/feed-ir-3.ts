@@ -35,8 +35,25 @@ function buildPublisherPostsQuery(
     .where('author', '=', publisherDid)
     .where('post.indexedAt', '>=', timeLimit)
     // Order by sum of engagement metrics, then by recency
+    // Order by time-decayed engagement score, then by recency
     .orderBy(
-      sql`COALESCE((COALESCE(likes_count, 0) + COALESCE(repost_count, 0) * 1.5 + COALESCE(comments_count, 0)), 0)`,
+      sql`
+        -- Base engagement score (likes + weighted reposts + comments)
+        COALESCE(
+          (COALESCE(likes_count, 0) + 
+           COALESCE(repost_count, 0) * 1.5 + 
+           COALESCE(comments_count, 0)), 
+          0
+        ) 
+        * 
+        -- Time decay factor (newer posts get higher multiplier)
+        (1 - POWER(
+          -- Age since timeLimit / Total time window
+          (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "indexedAt"::timestamp)) / 
+          (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM ${timeLimit}::timestamp)), 
+          2
+        ))
+      `,
       'desc'
     )
     .orderBy('indexedAt', 'desc')
@@ -60,9 +77,25 @@ function buildFollowsPostsQuery(
     .where('author', '!=', publisherDid)
     .where('post.indexedAt', '>=', timeLimit)
     .where((eb) => eb('author', 'in', requesterFollows))
-    // Order by sum of engagement metrics, then by recency
+    // Order by time-decayed engagement score, then by recency
     .orderBy(
-      sql`COALESCE((COALESCE(likes_count, 0) + COALESCE(repost_count, 0) * 1.5 + COALESCE(comments_count, 0)), 0)`,
+      sql`
+        -- Base engagement score (likes + weighted reposts + comments)
+        COALESCE(
+          (COALESCE(likes_count, 0) + 
+           COALESCE(repost_count, 0) * 1.5 + 
+           COALESCE(comments_count, 0)), 
+          0
+        ) 
+        * 
+        -- Time decay factor (newer posts get higher multiplier)
+        (1 - POWER(
+          -- Age since timeLimit / Total time window
+          (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "indexedAt"::timestamp)) / 
+          (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM ${timeLimit}::timestamp)), 
+          2
+        ))
+      `,
       'desc'
     )
     .orderBy('indexedAt', 'desc')
