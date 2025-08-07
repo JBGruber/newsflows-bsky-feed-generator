@@ -36,6 +36,19 @@ export class FeedGenerator {
 
   static create(cfg: Config) {
     const app = express()
+    
+    // comply with CORS policy
+    app.use((req, res, next) => {
+      res.header('Access-Control-Allow-Origin', '*')
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, api-key')
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+      if (req.method === 'OPTIONS') {
+        res.sendStatus(200)
+      } else {
+        next()
+      }
+    })
+    
     const db = createDb(cfg.postgresUrl ||
       `postgres://${cfg.pgUser}:${cfg.pgPassword}@${cfg.pgHost}:${cfg.pgPort}/${cfg.pgDatabase}`)
     const firehose = new FirehoseSubscription(db, cfg.subscriptionEndpoint)
