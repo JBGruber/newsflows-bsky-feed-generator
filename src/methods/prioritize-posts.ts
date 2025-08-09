@@ -1,9 +1,13 @@
-// src/methods/prioritize.ts
+// src/methods/prioritize-posts.ts
 import express from 'express'
 import { AppContext } from '../config'
 import { Server } from '../lexicon'
 import { sql, SqlBool } from 'kysely'
-import { lexInteger } from '@atproto/lexicon'
+
+interface PriorityUpdate {
+  uri: string;
+  priority: number;
+}
 
 export default function registerPrioritizeEndpoint(server: Server, ctx: AppContext) {
   // Register the prioritize endpoint
@@ -17,8 +21,14 @@ export default function registerPrioritizeEndpoint(server: Server, ctx: AppConte
         return res.status(401).json({ error: 'Unauthorized: Invalid API key' })
       }
 
+      // Check if request body contains JSON data (URI-based updates)
+      if (req.body && Array.isArray(req.body)) {
+        return handleJsonPriorityUpdates(req, res, ctx);
+      }
+
+      // Original keyword-based logic
       if (!keywords) {
-        return res.status(400).json({ error: 'Missing required parameter: keywords' })
+        return res.status(400).json({ error: 'Missing required parameter: keywords (or provide JSON body with URIs)' })
       }
 
       const maxdaysNumber = Number(maxdays) || 1;
@@ -103,7 +113,7 @@ export default function registerPrioritizeEndpoint(server: Server, ctx: AppConte
     }
   })
 
-  // Also provide a GET endpoint for convenience
+  // Also provide a GET endpoint for convenience (keywords only)
   server.xrpc.router.get('/api/prioritize', async (req: express.Request, res: express.Response) => {
     try {
       const { keywords, test = true, priority = 1, maxdays = 1 } = req.query
@@ -199,4 +209,125 @@ export default function registerPrioritizeEndpoint(server: Server, ctx: AppConte
       return res.status(500).json({ error: 'Internal server error', details: error.message })
     }
   })
+}
+
+// New function to handle JSON-based priority updates
+async function handleJsonPriorityUpdates(
+  req: express.Request, 
+  res: express.Response, 
+  ctx: AppContext
+) {
+  try {
+    const { test = true } = req.query;
+    
+    // Parse the input data - expect direct array
+    if (!Array.isArray(req.body)) {
+      return res.status(400).json({ 
+        error: 'Invalid JSON format. Expected array of {uri, priority} objects' 
+      });
+    }
+
+    const updates: PriorityUpdate[] = req.body;
+
+    // Validate the updates
+    const validUpdates: PriorityUpdate[] = [];
+    const invalidUpdates: any[] = [];
+
+    for (const update of updates) {
+      if (!update.uri || typeof update.uri !== 'string' || 
+          update.priority === undefined || typeof update.priority !== 'number') {
+        invalidUpdates.push(update);
+        continue;
+      }
+      validUpdates.push({
+        uri: update.uri,
+        priority: update.priority
+      });
+    }
+
+    if (invalidUpdates.length > 0) {
+      console.warn(`[${new Date().toISOString()}] - Found ${invalidUpdates.length} invalid updates`);
+    }
+
+    if (validUpdates.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid updates found. Each update must have "uri" (string) and "priority" (number)' 
+      });
+    }
+
+    console.log(`[${new Date().toISOString()}] - Processing ${validUpdates.length} URI-based priority updates`);
+
+    // Extract URIs to check which ones exist in the database
+    const uris = validUpdates.map(update => update.uri);
+    
+    const existingPosts = await ctx.db
+      .selectFrom('post')
+      .select(['uri'])
+      .where('uri', 'in', uris)
+      .execute();
+
+    const existingUris = new Set(existingPosts.map(post => post.uri));
+    const foundUpdates = validUpdates.filter(update => existingUris.has(update.uri));
+    const notFoundUris = validUpdates
+      .filter(update => !existingUris.has(update.uri))
+      .map(update => update.uri);
+
+    if (test === true || String(test).toLowerCase() === 'true') {
+      // Test mode: return what would be updated
+      return res.json({
+        mode: 'test',
+        totalRequested: validUpdates.length,
+        postsFound: foundUpdates.length,
+        postsNotFound: notFoundUris.length,
+        invalidUpdates: invalidUpdates.length,
+        foundUpdates: foundUpdates,
+        notFoundUris: notFoundUris,
+        invalidEntries: invalidUpdates
+      });
+    } else {
+      // Actual update mode
+      if (foundUpdates.length === 0) {
+        return res.json({
+          mode: 'update',
+          postsUpdated: 0,
+          postsNotFound: notFoundUris.length,
+          invalidUpdates: invalidUpdates.length,
+          notFoundUris: notFoundUris,
+          invalidEntries: invalidUpdates
+        });
+      }
+
+      // Perform the updates in a transaction
+      await ctx.db.transaction().execute(async (trx) => {
+        // Update each post with its specific priority
+        const updatePromises = foundUpdates.map(update => 
+          trx
+            .updateTable('post')
+            .set('priority', update.priority)
+            .where('uri', '=', update.uri)
+            .execute()
+        );
+
+        await Promise.all(updatePromises);
+      });
+
+      console.log(`[${new Date().toISOString()}] - Updated ${foundUpdates.length} posts with custom priorities`);
+
+      return res.json({
+        mode: 'update',
+        postsUpdated: foundUpdates.length,
+        postsNotFound: notFoundUris.length,
+        invalidUpdates: invalidUpdates.length,
+        updatedUris: foundUpdates.map(u => u.uri),
+        notFoundUris: notFoundUris,
+        invalidEntries: invalidUpdates
+      });
+    }
+  } catch (error) {
+    console.error('Error in JSON priority updates:', error);
+    return res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error.message 
+    });
+  }
 }

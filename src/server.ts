@@ -37,6 +37,10 @@ export class FeedGenerator {
   static create(cfg: Config) {
     const app = express()
     
+    // Add JSON body parser middleware
+    app.use(express.json({ limit: '10mb' })) // Adjust limit as needed
+    app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
     // comply with CORS policy
     app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*')
