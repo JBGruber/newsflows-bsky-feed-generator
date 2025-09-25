@@ -139,3 +139,4 @@ passwords.csv
 lab.R
 nl.csv
 docker-compose-deploy.yml
+scripts/reminder.r

@@ -5,6 +5,36 @@ import { getProfile } from '../util/queries';
 
 
 export default function registerSubscribeEndpoint(server: Server, ctx: AppContext) {
+  server.xrpc.router.get('/api/subscribers', async (req, res) => {
+    const apiKey = req.headers['api-key']
+
+    if (!apiKey || apiKey !== process.env.PRIORITIZE_API_KEY) {
+      console.log(`[${new Date().toISOString()}] - Attempted unauthorized access to subscribers with API key ${apiKey}`);
+      return res.status(401).json({ error: 'Unauthorized: Invalid API key' })
+    }
+
+    try {
+      const subscribers = await ctx.db
+        .selectFrom('subscriber')
+        .selectAll()
+        .orderBy('handle', 'asc')
+        .execute()
+
+      console.log(`[${new Date().toISOString()}] - Retrieved ${subscribers.length} subscribers`);
+
+      return res.json({
+        count: subscribers.length,
+        subscribers: subscribers
+      });
+    } catch (error) {
+      console.error('Error retrieving subscribers:', error);
+      return res.status(500).json({
+        error: 'InternalServerError',
+        message: 'An unexpected error occurred'
+      });
+    }
+  });
+
   server.xrpc.router.get('/api/subscribe', async (req, res) => {
     const { handle, did } = req.query;
     // Validate that either handle or did is provided
