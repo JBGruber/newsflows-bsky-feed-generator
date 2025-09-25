@@ -35,6 +35,36 @@ export default function registerSubscribeEndpoint(server: Server, ctx: AppContex
     }
   });
 
+  server.xrpc.router.get('/api/follows', async (req, res) => {
+    const apiKey = req.headers['api-key']
+
+    if (!apiKey || apiKey !== process.env.PRIORITIZE_API_KEY) {
+      console.log(`[${new Date().toISOString()}] - Attempted unauthorized access to follows with API key ${apiKey}`);
+      return res.status(401).json({ error: 'Unauthorized: Invalid API key' })
+    }
+
+    try {
+      const follows = await ctx.db
+        .selectFrom('follows')
+        .selectAll()
+        .orderBy('subject', 'asc')
+        .execute()
+
+      console.log(`[${new Date().toISOString()}] - Retrieved ${follows.length} follows`);
+
+      return res.json({
+        count: follows.length,
+        follows: follows
+      });
+    } catch (error) {
+      console.error('Error retrieving follows:', error);
+      return res.status(500).json({
+        error: 'InternalServerError',
+        message: 'An unexpected error occurred'
+      });
+    }
+  });
+
   server.xrpc.router.get('/api/subscribe', async (req, res) => {
     const { handle, did } = req.query;
     // Validate that either handle or did is provided
