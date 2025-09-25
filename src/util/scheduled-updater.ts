@@ -1,6 +1,20 @@
 import { Database } from '../db';
 import { getFollowsApi } from './queries';
 
+// Get all NEWSBOT_*_DID environment variables
+function getNewsbotDids(): string[] {
+  const newsbotDids: string[] = [];
+  Object.keys(process.env).forEach(key => {
+    if (key.startsWith('NEWSBOT_') && key.endsWith('_DID')) {
+      const did = process.env[key];
+      if (did) {
+        newsbotDids.push(did);
+      }
+    }
+  });
+  return newsbotDids;
+}
+
 // Track active timers
 let activeTimers: NodeJS.Timeout[] = [];
 
@@ -10,6 +24,21 @@ let activeTimers: NodeJS.Timeout[] = [];
  */
 export async function updateAllSubscriberFollows(db: Database, updateAll: boolean = false): Promise<void> {
   try {
+    // Get newsbot DIDs that should be excluded
+    const newsbotDids = getNewsbotDids();
+    console.log(`[${new Date().toISOString()}] - Found ${newsbotDids.length} newsbot DIDs to exclude: ${newsbotDids.join(', ')}`);
+
+    // Remove any existing newsbot accounts from follows table
+    if (newsbotDids.length > 0) {
+      const deletedCount = await db
+        .deleteFrom('follows')
+        .where('follows', 'in', newsbotDids)
+        .execute();
+
+      if (deletedCount.length > 0) {
+        console.log(`[${new Date().toISOString()}] - Removed ${deletedCount.length} newsbot accounts from follows table`);
+      }
+    }
 
     // Get all subscribers from the database
     const subscribers = await db
@@ -21,7 +50,7 @@ export async function updateAllSubscriberFollows(db: Database, updateAll: boolea
 
     for (const subscriber of subscribers) {
       try {
-        await getFollowsApi(subscriber.did, db, updateAll);
+        await getFollowsApi(subscriber.did, db, updateAll, newsbotDids);
       } catch (error) {
         console.error(`Error updating follows for ${subscriber.did}:`, error);
       }
@@ -63,7 +92,8 @@ export function triggerFollowsUpdateForSubscriber(db: Database, did: string): vo
   setTimeout(async () => {
     try {
       console.log(`[${new Date().toISOString()}] - Background update: fetching follows for new subscriber ${did}`);
-      await getFollowsApi(did, db);
+      const newsbotDids = getNewsbotDids();
+      await getFollowsApi(did, db, false, newsbotDids);
     } catch (error) {
       console.error(`Error updating follows for ${did}:`, error);
     }

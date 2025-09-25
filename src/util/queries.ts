@@ -33,7 +33,7 @@ export async function getFollows(actor: string, db): Promise<string[]> {
     return getFollowsApi(actor, db);
 }
 
-export async function getFollowsApi(actor: string, db, updateAll: boolean = false): Promise<string[]> {
+export async function getFollowsApi(actor: string, db, updateAll: boolean = false, excludeDids: string[] = []): Promise<string[]> {
     const baseUrl = 'https://public.api.bsky.app/xrpc/app.bsky.graph.getFollows';
     let allFollows: SimplifiedFollow[] = [];
     let currentCursor: string | undefined = undefined;
@@ -79,11 +79,13 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
                 break;
             }
 
-            // Map the follows to a simpler structure for database storage
-            const simplifiedFollows = data.follows.map(follow => ({
-                subject: actor,
-                follows: follow.did,
-            }));
+            // Map the follows to a simpler structure for database storage, excluding newsbot DIDs
+            const simplifiedFollows = data.follows
+                .filter(follow => !excludeDids.includes(follow.did))
+                .map(follow => ({
+                    subject: actor,
+                    follows: follow.did,
+                }));
 
             // Check if all DIDs in this page already exist in the database
             if (existingFollowsSet.size > 0 && !updateAll) {
