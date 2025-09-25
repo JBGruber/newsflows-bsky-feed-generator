@@ -75,11 +75,10 @@ export default function registerMonitorEndpoints(server: Server, ctx: AppContext
     try {
       const { min_date, user_did } = req.query;
 
-      // Build the query with JSON aggregation for posts
+      // Build the query with JSON aggregation for posts (only from request_posts table)
       let query = ctx.db
         .selectFrom('request_log as rl')
         .leftJoin('request_posts as rp', 'rl.id', 'rp.request_id')
-        .leftJoin('post as p', 'rp.post_uri', 'p.uri')
         .select([
           'rl.id',
           'rl.algo',
@@ -87,12 +86,11 @@ export default function registerMonitorEndpoints(server: Server, ctx: AppContext
           'rl.timestamp',
           sql<any>`COALESCE(
             JSON_AGG(
-              JSON_BUILD_OBJECT('uri', rp.post_uri, 'user_did', p.author)
+              JSON_BUILD_OBJECT('uri', rp.post_uri, 'position', rp.position)
             ) FILTER (WHERE rp.post_uri IS NOT NULL),
             '[]'::json
           )`.as('posts')
         ])
-        .where('rl.requester_did', '=', 'p.author')
         .groupBy(['rl.id', 'rl.algo', 'rl.requester_did', 'rl.timestamp'])
 
       // Apply optional filters
