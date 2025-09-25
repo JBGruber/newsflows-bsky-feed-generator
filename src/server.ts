@@ -7,6 +7,7 @@ import feedGeneration from './methods/feed-generation'
 import describeGenerator from './methods/feed-generation'
 import registerSubscribeEndpoint from './methods/subscribe'
 import registerPrioritizeEndpoint from './methods/prioritize-posts'
+import registerMonitorEndpoints from './methods/monitor'
 import { importSubscribersFromCSV } from './util/import-subscribers'
 import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
@@ -84,6 +85,7 @@ export class FeedGenerator {
     // register api endpoints
     registerSubscribeEndpoint(server, ctx)
     registerPrioritizeEndpoint(server, ctx);
+    registerMonitorEndpoints(server, ctx);
 
     return new FeedGenerator(app, db, firehose, cfg)
   }
