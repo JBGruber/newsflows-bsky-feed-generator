@@ -1,6 +1,8 @@
 library(httr2)
 readRenviron(".env")
-requests <- request(paste0("http://", Sys.getenv("FEEDGEN_LISTENHOST"), ":3020")) |> 
+# for https servers use 
+# requests <- request(paste0("https://", Sys.getenv("FEEDGEN_HOSTNAME"))) |> 
+requests <- request(paste0("http://", Sys.getenv("FEEDGEN_HOSTNAME"), ":3020")) |> 
   req_url_path("/api/compliance") |> 
   # optional query parameters
   req_url_query(
