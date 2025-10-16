@@ -13,7 +13,7 @@ import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
 import wellKnown from './well-known'
-import { setupFollowsUpdateScheduler, setupEngagmentUpdateScheduler, stopAllSchedulers } from './util/scheduled-updater'
+import { setupFollowsUpdateScheduler, setupEngagmentUpdateScheduler, setupDailyFullSyncScheduler, stopAllSchedulers } from './util/scheduled-updater'
 
 export class FeedGenerator {
   public app: express.Application
@@ -104,14 +104,14 @@ export class FeedGenerator {
     }
 
     // Set up the scheduler to update follows
-    // Run once every hour by default (or override with env var)
+    // Run once every hour by default (or override with env var) for incremental updates
     const updateInterval = parseInt(process.env.FOLLOWS_UPDATE_INTERVAL_MS || '', 10) || 60 * 60 * 1000;
     console.log(`[${new Date().toISOString()}] - Setting up follows updater to run every ${updateInterval / 1000} seconds`);
     this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval);
     this.followsUpdateTimer = setupEngagmentUpdateScheduler(this.db, updateInterval);
-    
-    // TODO: update all follows, including removals, periodically
-    // this.followsUpdateTimer = setupFollowsUpdateScheduler(this.db, updateInterval * 24, false, true);
+
+    // Set up daily full sync at 4:00 AM to remove unfollowed accounts
+    setupDailyFullSyncScheduler(this.db);
 
     return this.server
   }

@@ -319,6 +319,53 @@ export function setupEngagmentUpdateScheduler(
 }
 
 
+/**
+ * Sets up a daily scheduler that runs at 4:00 AM local time to perform a full sync
+ * of all subscriber follows. This removes unfollowed accounts from the database.
+ */
+export function setupDailyFullSyncScheduler(db: Database): NodeJS.Timeout {
+  const runFullSync = () => {
+    console.log(`[${new Date().toISOString()}] - Starting daily full sync of all subscriber follows`);
+    updateAllSubscriberFollows(db, true).catch(err => {
+      console.error('Error in daily full sync:', err);
+    });
+  };
+
+  // Calculate milliseconds until next 4:00 AM
+  const getMillisecondsUntil4AM = (): number => {
+    const now = new Date();
+    const next4AM = new Date(now);
+    next4AM.setHours(4, 0, 0, 0);
+
+    // If it's already past 4:00 AM today, schedule for tomorrow
+    if (now.getHours() >= 4) {
+      next4AM.setDate(next4AM.getDate() + 1);
+    }
+
+    return next4AM.getTime() - now.getTime();
+  };
+
+  // Schedule the first run at 4:00 AM
+  const msUntil4AM = getMillisecondsUntil4AM();
+  console.log(`[${new Date().toISOString()}] - Daily full sync scheduled to run at 4:00 AM (in ${Math.round(msUntil4AM / 1000 / 60 / 60)} hours)`);
+
+  setTimeout(() => {
+    runFullSync();
+
+    // After the first run, set up a daily interval (24 hours)
+    const dailyInterval = setInterval(() => {
+      runFullSync();
+    }, 24 * 60 * 60 * 1000); // 24 hours
+
+    activeTimers.push(dailyInterval);
+  }, msUntil4AM);
+
+  // Return a dummy timer ID (the real timer will be added to activeTimers after first run)
+  const timerId = setTimeout(() => {}, 0); // Placeholder
+  activeTimers.push(timerId);
+  return timerId;
+}
+
 // Stop all running schedulers
 export function stopAllSchedulers(): void {
   console.log(`[${new Date().toISOString()}] - Stopping ${activeTimers.length} active schedulers`);

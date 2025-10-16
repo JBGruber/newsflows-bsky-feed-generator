@@ -118,12 +118,29 @@ export async function getFollowsApi(actor: string, db, updateAll: boolean = fals
 
     if (allFollows.length > 0) {
         try {
-            await db
-                .insertInto('follows')
-                .values(allFollows)
-                .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
-                .execute();
-            console.log(`[${new Date().toISOString()}] - Fetched ${allFollows.length} new follows for ${actor}`);
+            if (updateAll) {
+                // Full sync mode: replace entire follows list for this subject
+                // Delete existing follows for this subject
+                await db
+                    .deleteFrom('follows')
+                    .where('subject', '=', actor)
+                    .execute();
+
+                // Insert the complete new list
+                await db
+                    .insertInto('follows')
+                    .values(allFollows)
+                    .execute();
+                console.log(`[${new Date().toISOString()}] - Full sync: replaced follows list with ${allFollows.length} follows for ${actor}`);
+            } else {
+                // Incremental sync mode: only add new follows
+                await db
+                    .insertInto('follows')
+                    .values(allFollows)
+                    .onConflict((oc) => oc.columns(['subject', 'follows']).doNothing())
+                    .execute();
+                console.log(`[${new Date().toISOString()}] - Incremental sync: added ${allFollows.length} new follows for ${actor}`);
+            }
         } catch (dbError) {
             console.error(`[${new Date().toISOString()}] - Database error while storing follows for ${actor}:`, dbError);
         }
