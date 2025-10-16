@@ -126,6 +126,12 @@ export async function updateEngagement(db: Database): Promise<void> {
 
     console.log(`[${new Date().toISOString()}] - Found ${followsList.length} followed accounts to process.`);
 
+    // If there are no followed accounts, skip the engagement update
+    if (followsList.length === 0) {
+      console.log(`[${new Date().toISOString()}] - No followed accounts to process, skipping engagement update.`);
+      return;
+    }
+
     // Get recent posts from followed accounts
     const recentPosts = await db
       .selectFrom('post')
