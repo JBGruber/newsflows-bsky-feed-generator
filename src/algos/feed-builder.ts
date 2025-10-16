@@ -76,15 +76,22 @@ export async function buildFeed({
 
   console.log(`[${new Date().toISOString()}] - Feed ${shortname} retrieved ${publisherPosts.length} publisher posts and ${otherPosts.length} other posts`);
 
-  // Merge both post lists in an alternating pattern
+  // Merge both post lists in a 1:2 pattern (1 publisher post, 2 other posts)
   const feed: SkeletonFeedPost[] = [];
-  const maxLength = Math.max(publisherPosts.length, otherPosts.length);
-  for (let i = 0; i < maxLength; i++) {
-    if (i < publisherPosts.length) {
-      feed.push({ post: publisherPosts[i].uri });
+  let publisherIndex = 0;
+  let otherIndex = 0;
+
+  while (publisherIndex < publisherPosts.length || otherIndex < otherPosts.length) {
+    // Add 1 publisher post
+    if (publisherIndex < publisherPosts.length) {
+      feed.push({ post: publisherPosts[publisherIndex].uri });
+      publisherIndex++;
     }
-    if (i < otherPosts.length) {
-      feed.push({ post: otherPosts[i].uri });
+
+    // Add 2 other posts
+    for (let i = 0; i < 2 && otherIndex < otherPosts.length; i++) {
+      feed.push({ post: otherPosts[otherIndex].uri });
+      otherIndex++;
     }
   }
 
