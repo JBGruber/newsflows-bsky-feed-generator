@@ -101,11 +101,23 @@ export function triggerFollowsUpdateForSubscriber(db: Database, did: string): vo
 }
 
 export async function updateEngagement(db: Database): Promise<void> {
-  const timeLimit = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Use the same time limit as the feed builder
+  const engagementTimeHours = process.env.ENGAGEMENT_TIME_HOURS ?
+    parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
+  const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
   try {
-    console.log(`[${new Date().toISOString()}] - Starting scheduled update of subscriber engagement...`);
+    console.log(`[${new Date().toISOString()}] - Starting scheduled update of subscriber engagement (last ${engagementTimeHours} hours)...`);
+
+    // Get newsbot DIDs to identify publisher posts
+    const newsbotDids = getNewsbotDids();
 
     // Get all subscribers from the database
+    const subscribers = await db
+      .selectFrom('subscriber')
+      .select('did')
+      .execute();
+    const subscriberDids = subscribers.map(s => s.did);
+
     const follows = await db
       .selectFrom('follows')
       .select('follows')
@@ -119,54 +131,113 @@ export async function updateEngagement(db: Database): Promise<void> {
       .selectFrom('post')
       .where('post.indexedAt', '>=', timeLimit)
       .where('post.author', 'in', followsList)
-      .select(['post.uri'])
+      .select(['post.uri', 'post.author'])
       .execute();
 
     const postUris = recentPosts.map(post => post.uri);
+
+    // Separate publisher posts from other posts
+    const publisherPostUris: string[] = [];
+    const otherPostUris: string[] = [];
+
+    recentPosts.forEach(post => {
+      if (newsbotDids.includes(post.author)) {
+        publisherPostUris.push(post.uri);
+      } else {
+        otherPostUris.push(post.uri);
+      }
+    });
 
     if (postUris.length === 0) {
       console.log(`[${new Date().toISOString()}] - No recent posts to update.`);
       return;
     }
 
-    console.log(`[${new Date().toISOString()}] - Found ${postUris.length} posts to update engagement stats for.`);
+    console.log(`[${new Date().toISOString()}] - Found ${postUris.length} posts to update engagement stats for (${publisherPostUris.length} from publishers, ${otherPostUris.length} from others).`);
 
     // Count likes for each post
-    // Count likes for each post
-    const likeCountsResult = await db
+    // For other posts: count all engagement
+    const otherLikesResult = otherPostUris.length > 0 ? await db
       .selectFrom('engagement')
-      .where('engagement.subjectUri', 'in', postUris)
+      .where('engagement.subjectUri', 'in', otherPostUris)
       .where('engagement.type', '=', 2) // Type 2 is for likes
       .select([
         'engagement.subjectUri as uri',
         db.fn.count<number>('uri').as('count')
       ])
       .groupBy('engagement.subjectUri')
-      .execute();
+      .execute() : [];
+
+    // For publisher posts: only count engagement from subscribers
+    const publisherLikesResult = (publisherPostUris.length > 0 && subscriberDids.length > 0) ? await db
+      .selectFrom('engagement')
+      .where('engagement.subjectUri', 'in', publisherPostUris)
+      .where('engagement.author', 'in', subscriberDids)
+      .where('engagement.type', '=', 2) // Type 2 is for likes
+      .select([
+        'engagement.subjectUri as uri',
+        db.fn.count<number>('uri').as('count')
+      ])
+      .groupBy('engagement.subjectUri')
+      .execute() : [];
+
+    const likeCountsResult = [...otherLikesResult, ...publisherLikesResult];
 
     // Count reposts for each post
-    const repostCountsResult = await db
+    // For other posts: count all engagement
+    const otherRepostsResult = otherPostUris.length > 0 ? await db
       .selectFrom('engagement')
-      .where('engagement.subjectUri', 'in', postUris)
+      .where('engagement.subjectUri', 'in', otherPostUris)
       .where('engagement.type', '=', 1) // Type 1 is for reposts
       .select([
         'engagement.subjectUri as uri',
         db.fn.count<number>('uri').as('count')
       ])
       .groupBy('engagement.subjectUri')
-      .execute();
+      .execute() : [];
+
+    // For publisher posts: only count engagement from subscribers
+    const publisherRepostsResult = (publisherPostUris.length > 0 && subscriberDids.length > 0) ? await db
+      .selectFrom('engagement')
+      .where('engagement.subjectUri', 'in', publisherPostUris)
+      .where('engagement.author', 'in', subscriberDids)
+      .where('engagement.type', '=', 1) // Type 1 is for reposts
+      .select([
+        'engagement.subjectUri as uri',
+        db.fn.count<number>('uri').as('count')
+      ])
+      .groupBy('engagement.subjectUri')
+      .execute() : [];
+
+    const repostCountsResult = [...otherRepostsResult, ...publisherRepostsResult];
 
     // Count comments for each post (comments are posts with rootUri pointing to the original post)
-    const commentCountsResult = await db
+    // For other posts: count all comments
+    const otherCommentsResult = otherPostUris.length > 0 ? await db
       .selectFrom('post as comments')
-      .where('comments.rootUri', 'in', postUris)
+      .where('comments.rootUri', 'in', otherPostUris)
       .where('comments.rootUri', '!=', '') // Ensure it's a real comment
       .select([
         'comments.rootUri as uri',
         db.fn.count<number>('uri').as('count')
       ])
       .groupBy('comments.rootUri')
-      .execute();
+      .execute() : [];
+
+    // For publisher posts: only count comments from subscribers
+    const publisherCommentsResult = (publisherPostUris.length > 0 && subscriberDids.length > 0) ? await db
+      .selectFrom('post as comments')
+      .where('comments.rootUri', 'in', publisherPostUris)
+      .where('comments.author', 'in', subscriberDids)
+      .where('comments.rootUri', '!=', '') // Ensure it's a real comment
+      .select([
+        'comments.rootUri as uri',
+        db.fn.count<number>('uri').as('count')
+      ])
+      .groupBy('comments.rootUri')
+      .execute() : [];
+
+    const commentCountsResult = [...otherCommentsResult, ...publisherCommentsResult];
 
     // Create maps for quick lookups
     const likesMap = new Map(
@@ -218,7 +289,7 @@ export async function updateEngagement(db: Database): Promise<void> {
 
 export function setupEngagmentUpdateScheduler(
   db: Database,
-  intervalMs: number = 60 * 60 * 1000, // Default: 1 hour
+  intervalMs: number = 15 * 60 * 1000, // Default: 15 minutes
   runImmediately: boolean = true,
   updateAll: boolean = false
 ): NodeJS.Timeout {
