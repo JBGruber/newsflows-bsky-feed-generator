@@ -1,4 +1,3 @@
-import express from 'express'
 import { Server } from '../lexicon'
 import { AppContext } from '../config'
 import { sql } from 'kysely'
@@ -112,6 +111,160 @@ export default function registerMonitorEndpoints(server: Server, ctx: AppContext
       });
     } catch (error) {
       console.error('Error retrieving compliance data:', error);
+      return res.status(500).json({
+        error: 'InternalServerError',
+        message: 'An unexpected error occurred'
+      });
+    }
+  });
+
+  server.xrpc.router.get('/api/engagement', async (req, res) => {
+    const apiKey = req.headers['api-key']
+
+    if (!apiKey || apiKey !== process.env.PRIORITIZE_API_KEY) {
+      console.log(`[${new Date().toISOString()}] - Attempted unauthorized access to engagement with API key ${apiKey}`);
+      return res.status(401).json({ error: 'Unauthorized: Invalid API key' })
+    }
+
+    try {
+      const { requester_did, publisher_did, page } = req.query;
+
+      // Validate that exactly one of requester_did or publisher_did is provided
+      if ((!requester_did && !publisher_did) || (requester_did && publisher_did)) {
+        return res.status(400).json({
+          error: 'BadRequest',
+          message: 'Exactly one of requester_did or publisher_did must be provided'
+        });
+      }
+
+      // Parse page parameter (default to 0)
+      const pageNum = page ? parseInt(page as string, 10) : 0;
+      if (isNaN(pageNum) || pageNum < 0) {
+        return res.status(400).json({
+          error: 'BadRequest',
+          message: 'page must be a non-negative integer'
+        });
+      }
+
+      const limit = 100;
+      const offset = pageNum * limit;
+
+      // Get engagement time window from environment
+      const engagementTimeHours = process.env.ENGAGEMENT_TIME_HOURS ?
+        parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
+      const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
+
+      let posts: any[];
+      let queryType: string;
+
+      if (publisher_did) {
+        // Query for posts by the specified publisher
+        queryType = 'publisher';
+        posts = await ctx.db
+          .selectFrom('post')
+          .select([
+            'uri',
+            'indexedAt',
+            'likes_count',
+            'repost_count',
+            'comments_count',
+            // Base engagement score
+            sql<number>`
+              COALESCE(
+                (COALESCE(likes_count, 0) +
+                 COALESCE(repost_count, 0) * 1.5 +
+                 COALESCE(comments_count, 0)),
+                0
+              )
+            `.as('base_engagement_score'),
+            // Time-decayed engagement score
+            sql<number>`
+              COALESCE(
+                (COALESCE(likes_count, 0) +
+                 COALESCE(repost_count, 0) * 1.5 +
+                 COALESCE(comments_count, 0)),
+                0
+              )
+              *
+              (1 - POWER(
+                (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "indexedAt"::timestamp)) /
+                (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM ${timeLimit}::timestamp)),
+                2
+              ))
+            `.as('time_decayed_engagement_score')
+          ])
+          .where('author', '=', publisher_did as string)
+          .where('post.indexedAt', '>=', timeLimit)
+          .orderBy('time_decayed_engagement_score', 'desc')
+          .orderBy('indexedAt', 'desc')
+          .orderBy('cid', 'desc')
+          .offset(offset)
+          .limit(limit)
+          .execute();
+      } else {
+        // Query for posts by people the requester follows
+        queryType = 'follows';
+        const { getFollows } = await import('../util/queries');
+        const requesterFollows = await getFollows(requester_did as string, ctx.db);
+
+        posts = await ctx.db
+          .selectFrom('post')
+          .select([
+            'uri',
+            'indexedAt',
+            'likes_count',
+            'repost_count',
+            'comments_count',
+            // Base engagement score
+            sql<number>`
+              COALESCE(
+                (COALESCE(likes_count, 0) +
+                 COALESCE(repost_count, 0) * 1.5 +
+                 COALESCE(comments_count, 0)),
+                0
+              )
+            `.as('base_engagement_score'),
+            // Time-decayed engagement score
+            sql<number>`
+              COALESCE(
+                (COALESCE(likes_count, 0) +
+                 COALESCE(repost_count, 0) * 1.5 +
+                 COALESCE(comments_count, 0)),
+                0
+              )
+              *
+              (1 - POWER(
+                (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM "indexedAt"::timestamp)) /
+                (EXTRACT(EPOCH FROM NOW()) - EXTRACT(EPOCH FROM ${timeLimit}::timestamp)),
+                2
+              ))
+            `.as('time_decayed_engagement_score')
+          ])
+          .where('post.indexedAt', '>=', timeLimit)
+          .where((eb) => eb('author', 'in', requesterFollows))
+          .orderBy('time_decayed_engagement_score', 'desc')
+          .orderBy('indexedAt', 'desc')
+          .orderBy('cid', 'desc')
+          .offset(offset)
+          .limit(limit)
+          .execute();
+      }
+
+      console.log(`[${new Date().toISOString()}] - Retrieved ${posts.length} ${queryType} posts with engagement scores, page ${pageNum}`);
+
+      return res.json({
+        count: posts.length,
+        page: pageNum,
+        limit: limit,
+        query_type: queryType,
+        requester_did: requester_did || null,
+        publisher_did: publisher_did || null,
+        time_limit: timeLimit,
+        engagement_time_hours: engagementTimeHours,
+        posts: posts
+      });
+    } catch (error) {
+      console.error('Error retrieving engagement data:', error);
       return res.status(500).json({
         error: 'InternalServerError',
         message: 'An unexpected error occurred'
