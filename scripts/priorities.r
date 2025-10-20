@@ -1,12 +1,17 @@
 library(httr2)
 readRenviron(".env")
 # for https servers use
-# follows <- request(paste0("https://", Sys.getenv("FEEDGEN_HOSTNAME"))) |>
-priorities <- request(paste0(
+# base_req <- request(paste0(
+#   "https://",
+#   Sys.getenv("FEEDGEN_HOSTNAME"),
+#   ":443"
+# ))
+base_req <- request(paste0(
   "http://",
   Sys.getenv("FEEDGEN_HOSTNAME"),
   ":3020"
-)) |>
+))
+priorities <- base_req |>
   req_url_path("/api/priorities") |>
   req_url_query(
     publisher_did = "did:plc:toz4no26o2x4vsbum7cp4bxp"
@@ -23,11 +28,7 @@ priorities_df <- priorities |>
   dplyr::bind_rows()
 
 # or get engagement for the accounts a requester DID follows
-priorities <- request(paste0(
-  "http://",
-  Sys.getenv("FEEDGEN_HOSTNAME"),
-  ":3020"
-)) |>
+priorities <- base_req |>
   req_url_path("/api/priorities") |>
   req_url_query(
     # note this is a different parameter

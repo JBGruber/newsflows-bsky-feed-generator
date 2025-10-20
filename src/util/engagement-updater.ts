@@ -51,11 +51,14 @@ export async function updateEngagement(db: Database): Promise<void> {
       return;
     }
 
-    // Get recent posts from followed accounts
+    // Get recent posts from followed accounts and newsbots
+    // Combine both lists to ensure we capture all relevant posts
+    const accountsToCheck = [...new Set([...followsList, ...newsbotDids])];
+
     const recentPosts = await db
       .selectFrom('post')
       .where('post.indexedAt', '>=', timeLimit)
-      .where('post.author', 'in', followsList)
+      .where('post.author', 'in', accountsToCheck)
       .select(['post.uri', 'post.author'])
       .execute();
 
@@ -65,6 +68,8 @@ export async function updateEngagement(db: Database): Promise<void> {
     const publisherPostUris: string[] = [];
     const otherPostUris: string[] = [];
 
+    console.log(`[${new Date().toISOString()}] - Getting posts from ${newsbotDids} and others`);
+    
     recentPosts.forEach(post => {
       if (newsbotDids.includes(post.author)) {
         publisherPostUris.push(post.uri);
