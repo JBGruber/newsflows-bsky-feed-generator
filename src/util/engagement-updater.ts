@@ -1,4 +1,5 @@
 import { Database } from '../db';
+import { sql } from 'kysely';
 
 // Get all NEWSBOT_*_DID environment variables
 function getNewsbotDids(): string[] {
@@ -182,32 +183,39 @@ export async function updateEngagement(db: Database): Promise<void> {
       commentCountsResult.map(result => [result.uri, Number(result.count)])
     );
 
-    // Update each post with the correct counts
-    await db.transaction().execute(async (trx) => {
-      // Process updates directly instead of creating batches
-      const updatePromises = postUris.map(uri => {
-        const likesCount = likesMap.get(uri) || 0;
-        const repostsCount = repostsMap.get(uri) || 0;
-        const commentsCount = commentsMap.get(uri) || 0;
+    // Update posts with counts
+    const batchSize = 15000;
+    for (let i = 0; i < postUris.length; i += batchSize) {
+      const batchUris = postUris.slice(i, i + batchSize);
 
-        return trx
-          .updateTable('post')
-          .set({
-            likes_count: likesCount,
-            repost_count: repostsCount,
-            comments_count: commentsCount
-          })
-          .where('uri', '=', uri)
-          .execute();
-      });
+      // Build CASE statements for bulk update using sql template
+      const likesCases = sql.join(
+        batchUris.map(uri => sql`WHEN uri = ${uri} THEN ${likesMap.get(uri) || 0}`),
+        sql` `
+      );
 
-      // Process in chunks of 100 to avoid overwhelming the database
-      const batchSize = 100;
-      for (let i = 0; i < updatePromises.length; i += batchSize) {
-        const batch = updatePromises.slice(i, i + batchSize);
-        await Promise.all(batch);
-      }
-    });
+      const repostsCases = sql.join(
+        batchUris.map(uri => sql`WHEN uri = ${uri} THEN ${repostsMap.get(uri) || 0}`),
+        sql` `
+      );
+
+      const commentsCases = sql.join(
+        batchUris.map(uri => sql`WHEN uri = ${uri} THEN ${commentsMap.get(uri) || 0}`),
+        sql` `
+      );
+
+      // Execute single UPDATE with CASE for the entire batch
+      await sql`
+        UPDATE post
+        SET
+          likes_count = CASE ${likesCases} ELSE likes_count END,
+          repost_count = CASE ${repostsCases} ELSE repost_count END,
+          comments_count = CASE ${commentsCases} ELSE comments_count END
+        WHERE uri IN (${sql.join(batchUris.map(uri => sql`${uri}`), sql`, `)})
+      `.execute(db);
+
+      console.log(`[${new Date().toISOString()}] - Updated batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(postUris.length / batchSize)} (${batchUris.length} posts)`);
+    }
 
     console.log(`[${new Date().toISOString()}] - Successfully updated engagement counts for ${postUris.length} posts.`);
   } catch (error) {
