@@ -68,8 +68,6 @@ export async function updateEngagement(db: Database): Promise<void> {
     // Separate publisher posts from other posts
     const publisherPostUris: string[] = [];
     const otherPostUris: string[] = [];
-
-    console.log(`[${new Date().toISOString()}] - Getting posts from ${newsbotDids} and others`);
     
     recentPosts.forEach(post => {
       if (newsbotDids.includes(post.author)) {
