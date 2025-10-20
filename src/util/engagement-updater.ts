@@ -26,7 +26,7 @@ export async function updateEngagement(db: Database): Promise<void> {
     parseInt(process.env.ENGAGEMENT_TIME_HOURS, 10) : 72;
   const timeLimit = new Date(Date.now() - engagementTimeHours * 60 * 60 * 1000).toISOString();
   try {
-    console.log(`[${new Date().toISOString()}] - Starting scheduled update of subscriber engagement (last ${engagementTimeHours} hours)...`);
+    console.log(`[${new Date().toISOString()}] - Starting update of subscriber engagement (last ${engagementTimeHours} hours)...`);
 
     // Get newsbot DIDs to identify publisher posts
     const newsbotDids = getNewsbotDids();
@@ -182,7 +182,7 @@ export async function updateEngagement(db: Database): Promise<void> {
     );
 
     // Update posts with counts
-    const batchSize = 15000;
+    const batchSize = 5000;
     for (let i = 0; i < postUris.length; i += batchSize) {
       const batchUris = postUris.slice(i, i + batchSize);
 
